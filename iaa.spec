@@ -109,7 +109,7 @@ def _filter_pyside6_assets(datas, binaries, hiddenimports):
 def collect_package_assets():
     datas = []
     binaries = []
-    hiddenimports = ['rapidocr_onnxruntime', 'kotonebot', 'kaa', 'iaa.res', 'uiautomator2', 'av', 'PySide6']
+    hiddenimports = ['rapidocr_onnxruntime', 'kotonebot', 'kaa', 'iaa.res', 'uiautomator2', 'av', 'PySide6', 'plyer.platforms.win.notification']
     for package in ('rapidocr_onnxruntime', 'kotonebot', 'kaa', 'uiautomator2', 'av', 'PySide6'):
         pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(package)
         if package == 'PySide6':
