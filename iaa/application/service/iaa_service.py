@@ -33,7 +33,9 @@ class IaaService:
         logging.getLogger("iaa").setLevel(logging.DEBUG)
 
         # 控制台输出
-        console_handler = logging.StreamHandler()
+        # Write console logs to the real stderr to avoid duplicate UI output.
+        console_stream = sys.__stderr__ or sys.stderr
+        console_handler = logging.StreamHandler(stream=console_stream)
         console_handler.setLevel(logging.DEBUG)
         console_formatter = logging.Formatter(
             fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
