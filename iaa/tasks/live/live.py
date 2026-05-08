@@ -591,6 +591,7 @@ def challenge_live(
             # 文本，结果一直卡在 TextSelectCharacter 识别上。
             # 加上这个点击用于取消次数不足提示。
             logger.debug('Clicked group virtual singer.')
+            sleep(1)
 
     # 选择角色
     rep.message(f'选择角色：{character.value}')
