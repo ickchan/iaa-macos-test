@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import platform
+
 from iaa.application.framework.dsl import (
     Checkbox,
     Custom,
@@ -58,6 +60,11 @@ def _validate_start_command(value: object, _state: FormContext) -> str | None:
     if not str(value or '').strip():
         return '启动命令不能为空'
     return None
+
+
+def _on_emulator_change(state: FormContext, value: object) -> None:
+    if value not in {'mumu', 'mumu_v5'} and state.conf.game.control_impl == 'nemu_ipc':
+        state.conf.game.control_impl = 'adb'
 
 
 def _on_server_change(state: FormContext, value: object) -> None:
@@ -239,7 +246,11 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 key='game.emulator',
                 label='模拟器类型',
                 ref=ref(CTX.conf.game.emulator),
-                options=lambda s: s.meta.emulators,
+                options=lambda s: [
+                    o for o in s.meta.emulators
+                    if not (o['value'] in {'mumu', 'mumu_v5'} and platform.system() != 'Windows')
+                ],
+                on_change=_on_emulator_change,
             )
             Custom(
                 key='game.mumuInstanceId',
@@ -334,7 +345,7 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 key='game.linkAccount',
                 label='引继账号',
                 ref=ref(CTX.conf.game.link_account),
-                enabled=lambda s: s.conf.game.server == 'jp',
+                visible=lambda s: s.conf.game.server == 'jp',
                 options=lambda s: s.meta.linkAccounts,
                 help_text='''每次启动游戏的时候是否使用引继账号登录（仅限日服）''',
             )
@@ -342,7 +353,10 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 key='game.controlImpl',
                 label='控制方式',
                 ref=ref(CTX.conf.game.control_impl),
-                options=lambda s: s.meta.controlImpls,
+                options=lambda s: [
+                    o for o in s.meta.controlImpls
+                    if not (o['value'] == 'nemu_ipc' and s.conf.game.emulator not in {'mumu', 'mumu_v5'})
+                ],
                 help_text='''对于 MuMu 模拟器，推荐使用 <b>Nemu IPC</b> 方式，对于其他模拟器与物理机，推荐使用 <b>scrcpy</b> 方式''',
             )
             Checkbox(
