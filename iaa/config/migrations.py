@@ -50,6 +50,7 @@ class ProfileV1ToV2(MigrationStep):
                 
                 elif emulator == 'custom':
                     # 迁移 emulator_path -> start_command
+                    emulator_data = emulator_data or {}
                     if 'emulator_path' in emulator_data:
                         path = emulator_data.pop('emulator_path')
                         args = emulator_data.pop('emulator_args', '')
@@ -67,13 +68,12 @@ class ProfileV1ToV2(MigrationStep):
                 # 升级版本号
                 data['version'] = 2
                 file.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding='utf-8')
-                
-                if changed:
-                    ctx.messages.append(MigrationMessage(
-                        text="自定义模拟器配置升级",
-                        old_version="26.04b5",
-                        new_version="26.05b1"
-                    ))
+ 
+                ctx.messages.append(MigrationMessage(
+                    text="自定义模拟器配置升级",
+                    old_version="26.04b5 (v1)",
+                    new_version="26.05b1 (v2)"
+                ))
             except Exception as e:
                 ctx.messages.append(MigrationMessage(
                     text=f"迁移配置 {file.name} 时出错: {e}",
