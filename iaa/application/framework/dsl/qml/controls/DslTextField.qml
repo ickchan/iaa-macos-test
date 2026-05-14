@@ -18,6 +18,7 @@ ColumnLayout {
         Layout.fillWidth: true
         labelText: root.field.label
         helpText: root.field.helpText || ""
+        errorText: root.field.error || ""
         TextField {
             Layout.fillWidth: true
             text: String(root.field.value || "")
@@ -27,9 +28,4 @@ ColumnLayout {
         }
     }
 
-    Label {
-        visible: !!root.field.error
-        text: root.field.error || ""
-        color: "#DC3545"
-    }
 }
