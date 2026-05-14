@@ -179,7 +179,6 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     QQuickStyle.setStyle("FluentWinUI3")
-    app.setFont(QFont("Microsoft YaHei UI"))
 
     controller = AppController(log_bridge=log_bridge)
     interface = controller.service.config.shared.interface

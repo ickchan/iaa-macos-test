@@ -13,9 +13,11 @@ ApplicationWindow {
     height: 680
     visible: true
     title: window.appCtrl ? window.appCtrl.windowTitle : ""
-    font.family: "Microsoft YaHei UI"
-    color: window.appCtrl && window.appCtrl.windowStyle === "solid" ? palette.window : "transparent"
-    background: null
+    font.family: Qt.platform.os === "windows"
+        ? "Microsoft YaHei UI"
+        : Qt.platform.os === "osx"
+            ? "PingFang SC"
+            : "Noto Sans CJK SC"
 
     readonly property var appCtrl: appController
     readonly property var runCtrl: runController

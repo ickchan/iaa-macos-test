@@ -168,7 +168,11 @@ PageContainer {
                     selectByMouse: true
                     selectByKeyboard: true
                     persistentSelection: true
-                    font.family: "Consolas"
+                    font.family: Qt.platform.os === "windows"
+                        ? "Consolas"
+                        : Qt.platform.os === "osx"
+                            ? "Menlo"
+                            : "DejaVu Sans Mono"
                     clip: true
                     background: null
                     padding: 8
