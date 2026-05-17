@@ -243,6 +243,34 @@ def build_settings_form() -> tuple[FormSpec, list]:
     with FormPage('配置') as page:
         with Group('游戏设置'):
             Segmented(
+                key='game.server',
+                label='服务器',
+                ref=ref(CTX.conf.game.server),
+                options=lambda s: s.meta.servers,
+                on_change=_on_server_change,
+                help_text='''广告：现招募维护者维护除日服以外的服务器适配~ 如果你有兴趣参与维护，请联系作者。
+<hr>
+维护者：
+<ul>
+<li>日服：作者本人</li>
+<li>台服：空缺</li>
+<li>国服：空缺</li>
+<li>国际服：空缺</li>
+<li>韩服：空缺</li>
+</ul>
+'''
+            )
+            Segmented(
+                key='game.linkAccount',
+                label='引继账号',
+                ref=ref(CTX.conf.game.link_account),
+                visible=lambda s: s.conf.game.server == 'jp',
+                options=lambda s: s.meta.linkAccounts,
+                help_text='''每次启动游戏的时候是否使用引继账号登录（仅限日服）''',
+            )
+
+        with Group('设备设置'):
+            Segmented(
                 key='game.emulator',
                 label='模拟器类型',
                 ref=ref(CTX.conf.game.emulator),
@@ -251,6 +279,11 @@ def build_settings_form() -> tuple[FormSpec, list]:
                     if not (o['value'] in {'mumu', 'mumu_v5'} and platform.system() != 'Windows')
                 ],
                 on_change=_on_emulator_change,
+            )
+            Checkbox(
+                key='game.checkEmulator',
+                label='检查并启动模拟器',
+                ref=ref(CTX.conf.game.check_emulator),
             )
             Custom(
                 key='game.mumuInstanceId',
@@ -323,32 +356,8 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 visible=_emulator_is('custom'),
                 placeholder='可选。如果为空，将会使用默认的运行检测方式'
             )
-            Segmented(
-                key='game.server',
-                label='服务器',
-                ref=ref(CTX.conf.game.server),
-                options=lambda s: s.meta.servers,
-                on_change=_on_server_change,
-                help_text='''广告：现招募维护者维护除日服以外的服务器适配~ 如果你有兴趣参与维护，请联系作者。
-<hr>
-维护者：
-<ul>
-<li>日服：作者本人</li>
-<li>台服：空缺</li>
-<li>国服：空缺</li>
-<li>国际服：空缺</li>
-<li>韩服：空缺</li>
-</ul>
-'''
-            )
-            Segmented(
-                key='game.linkAccount',
-                label='引继账号',
-                ref=ref(CTX.conf.game.link_account),
-                visible=lambda s: s.conf.game.server == 'jp',
-                options=lambda s: s.meta.linkAccounts,
-                help_text='''每次启动游戏的时候是否使用引继账号登录（仅限日服）''',
-            )
+
+        with Group('连接与控制设置'):
             Segmented(
                 key='game.controlImpl',
                 label='控制方式',
@@ -371,11 +380,6 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 ref=ref(CTX.conf.game.resolution_method),
                 options=lambda s: s.meta.resolutionMethods,
                 with_reset_button=True,
-            )
-            Checkbox(
-                key='game.checkEmulator',
-                label='检查并启动模拟器',
-                ref=ref(CTX.conf.game.check_emulator),
             )
 
         with Group('演出设置'):
