@@ -143,3 +143,11 @@ class PreferencesController(QObject):
         self.runtimeChanged.emit()
         self.dirtyChanged.emit(self._state.dirty)
         return True
+
+    @Slot(result=str)
+    def hotkeyStart(self) -> str:
+        return self._iaa.config.shared.hotkeys.start or ''
+
+    @Slot(result=str)
+    def hotkeyStop(self) -> str:
+        return self._iaa.config.shared.hotkeys.stop or ''

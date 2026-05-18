@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from iaa.application.framework.dsl import Checkbox, FormPage, Group, PreferencesContext, Select, Text, of, ref
+from iaa.application.framework.dsl import Checkbox, FormPage, Group, Hotkey, PreferencesContext, Select, Text, of, ref
 
 CTX = of(PreferencesContext)
 
@@ -74,6 +74,24 @@ def build_preferences_form() -> tuple:
                 ref=ref(CTX.shared.notify.push.data.command),
                 placeholder='任务完成后执行的命令',
                 visible=lambda ctx: ctx.shared.notify.push.enabled,
+            )
+
+        with Group('快捷键'):
+            Hotkey(
+                key='hotkeys.start',
+                label='启动脚本',
+                ref=ref(CTX.shared.hotkeys.start).map(
+                    to_ui=lambda v: '' if v is None else v,
+                    from_ui=lambda v: None if not v else v,
+                ),
+            )
+            Hotkey(
+                key='hotkeys.stop',
+                label='停止脚本',
+                ref=ref(CTX.shared.hotkeys.stop).map(
+                    to_ui=lambda v: '' if v is None else v,
+                    from_ui=lambda v: None if not v else v,
+                ),
             )
 
     return page.spec, page.hooks

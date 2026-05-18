@@ -18,6 +18,7 @@ from .scrcpy_controller import ScrcpyController
 from .settings_controller import SettingsController
 from .preferences_controller import PreferencesController
 from .help_controller import HelpController
+from .global_hotkey_controller import GlobalHotkeyController
 
 
 class AppController(QObject):
@@ -64,6 +65,12 @@ class AppController(QObject):
         self.preferencesController = PreferencesController(self.service, self)
         self.profileStoreBackend = ProfileStoreBackend(self.settingsController, self)
         self.helpController = HelpController(self.service, self)
+        self.globalHotkeyController = GlobalHotkeyController(
+            self.service,
+            self.runController,
+            self.preferencesController,
+            self,
+        )
         self._global_error = ''
         self._telemetry_consent_required = self.service.config.shared.telemetry.sentry is None
         setup_telemetry()
@@ -184,6 +191,7 @@ class AppController(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self.globalHotkeyController.shutdown()
         self.progressBridge.close()
         self.logBridge.close()
         self.scrcpyController.set_visible(False)

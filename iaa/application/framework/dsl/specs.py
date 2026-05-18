@@ -446,3 +446,38 @@ def TransferList(
             on_change=on_change,
         )
     )
+
+
+def Hotkey(
+    key: str,
+    label: str | None,
+    *,
+    ref: Ref[FormContext, Any],
+    default: Any = None,
+    visible: Predicate | bool = True,
+    enabled: Predicate | bool = True,
+    help_text: str | None = None,
+    props: dict[str, Any] | None = None,
+    validators: list[Validator] | None = None,
+    on_change: OnChangeHook | None = None,
+) -> FieldSpec:
+    """声明一个快捷键录制字段。
+
+    值以 Qt portable sequence string 格式存储，例如 ``"Ctrl+F9"``、``"Meta+Shift+A"``。
+    ``None`` 表示未设置。
+    """
+    return _append_field(
+        FieldSpec(
+            key=key,
+            kind='hotkey',
+            label=label,
+            ref=ref,
+            help_text=help_text,
+            default=default,
+            visible=visible,
+            enabled=enabled,
+            props={} if props is None else props,
+            validators=[] if validators is None else validators,
+            on_change=on_change,
+        )
+    )

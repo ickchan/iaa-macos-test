@@ -44,6 +44,7 @@ Item {
             case "checkbox": return checkboxFieldComponent
             case "mumu_picker": return mumuPickerComponent
             case "transfer_list": return transferListComponent
+            case "hotkey": return hotkeyFieldComponent
             default: return unsupportedComponent
             }
         }
@@ -92,6 +93,14 @@ Item {
     Component {
         id: transferListComponent
         DslTransferList {
+            field: root.field
+            formController: root.formController
+        }
+    }
+
+    Component {
+        id: hotkeyFieldComponent
+        DslHotkeyField {
             field: root.field
             formController: root.formController
         }
