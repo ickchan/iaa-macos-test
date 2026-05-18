@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Literal
+import uuid
 
 from .context import FormContext
 from .refs import Ref
@@ -479,5 +480,40 @@ def Hotkey(
             props={} if props is None else props,
             validators=[] if validators is None else validators,
             on_change=on_change,
+        )
+    )
+
+
+def NoticeBlock(
+    content: str,
+    title: str | None = None,
+    *,
+    style: Literal['tip', 'warning', 'error', 'note'] = 'note',
+    visible: Predicate | bool = True,
+    enabled: Predicate | bool = True,
+) -> FieldSpec:
+    """声明一个提示块字段。"""
+    # 提示块没有真实的业务值，不需要 ref，生成一个虚拟的 key
+    dummy_key = f"_notice_{uuid.uuid4().hex}"
+    
+    # 使用一个无副作用的 custom_ref
+    from .refs import custom_ref
+    dummy_ref = custom_ref(lambda s: None, lambda s, v: None)
+    
+    return _append_field(
+        FieldSpec(
+            key=dummy_key,
+            kind='notice_block',
+            label=None,
+            ref=dummy_ref,
+            help_text=None,
+            default=None,
+            visible=visible,
+            enabled=enabled,
+            props={
+                'style': style,
+                'title': title,
+                'content': content,
+            },
         )
     )

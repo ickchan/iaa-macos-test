@@ -2,7 +2,7 @@ from .context import FormContext, FormMeta
 from .preferences_context import PreferencesContext, PreferencesMeta
 from .refs import Ref, custom_ref, of, ref
 from .runtime import RuntimeEngine
-from .specs import Checkbox, Custom, FieldSpec, FormPage, FormSpec, Group, GroupSpec, Hotkey, Segmented, Select, Text, TransferList
+from .specs import Checkbox, Custom, FieldSpec, FormPage, FormSpec, Group, GroupSpec, Hotkey, NoticeBlock, Segmented, Select, Text, TransferList
 from .state import SnapshotState
 
 __all__ = [
@@ -28,4 +28,5 @@ __all__ = [
     'Custom',
     'Hotkey',
     'Group',
+    'NoticeBlock',
 ]

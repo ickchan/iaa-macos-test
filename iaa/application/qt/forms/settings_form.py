@@ -8,8 +8,8 @@ from iaa.application.framework.dsl import (
     Custom,
     FormContext,
     FormPage,
-    FormSpec,
     Group,
+    NoticeBlock,
     Segmented,
     Select,
     Text,
@@ -454,6 +454,11 @@ def build_settings_form() -> tuple[FormSpec, list]:
                     if not (o['value'] == 'nemu_ipc' and not isinstance(s.conf.device.lifecycle, MuMuDevice))
                 ],
                 help_text='对于 MuMu 模拟器，推荐使用 <b>Nemu IPC</b> 方式，对于其他模拟器与物理机，推荐使用 <b>scrcpy</b> 方式',
+            )
+            NoticeBlock(
+                content='MuMu 模拟器选择 NemuIPC 效果最佳',
+                style='tip',
+                visible=lambda s: _is_mumu(s) and s.conf.device.control_impl != 'nemu_ipc'
             )
             Checkbox(
                 key='device.scrcpyVirtualDisplay',
