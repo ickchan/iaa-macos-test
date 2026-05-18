@@ -578,7 +578,7 @@ def challenge_live(
             logger.debug('Clicked home LIVE button.')
             sleep(1)
         elif btn := R.Live.ButtonChallengeLive.find():
-            if not color.find('#ff5589', rect=R.Live.BoxChallengeLiveRedDot):
+            if not color.find('#ff5589', rect=R.Live.BoxChallengeLiveRedDot, threshold=0.6):
                 logger.info("Today's challenge live already cleared.")
                 return
             device.click(btn)
