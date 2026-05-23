@@ -69,13 +69,18 @@ Control {
             }
 
             function updatePosition() {
-                if (root.currentIndex >= 0 && root.currentIndex < repeater.count) {
-                    const item = repeater.itemAt(root.currentIndex)
-                    if (item) {
-                        slider.targetX = item.x
-                        slider.targetWidth = item.width
-                    }
+                if (root.currentIndex < 0 || root.currentIndex >= repeater.count) return
+                const item = repeater.itemAt(root.currentIndex)
+                if (!item) return
+                // 不读 item.x：Row 布局 pass 可能晚于 Qt.callLater，此时 x 仍为 0。
+                // 改从各项 width 累加；width 由 label.implicitWidth 同步计算，不依赖布局 pass。
+                let x = 0
+                for (let i = 0; i < root.currentIndex; i++) {
+                    const prev = repeater.itemAt(i)
+                    if (prev) x += prev.width + row.spacing
                 }
+                slider.targetX = x
+                slider.targetWidth = item.width
             }
 
             Connections {

@@ -31,6 +31,7 @@ class PreferencesController(QObject):
     runtimeChanged = Signal()
     dirtyChanged = Signal(bool)
     fieldUpdated = Signal(str, str)  # (field_id, field_json)
+    groupUpdated = Signal(int, bool)  # (group_index, visible)
 
     def __init__(self, iaa_service: 'IaaService', parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -76,14 +77,15 @@ class PreferencesController(QObject):
         self._runtime = runtime
 
     def _emit_updates(self, old_runtime: dict[str, Any]) -> None:
-        """比较新旧 runtime，有结构变化时发 runtimeChanged，否则只发变化字段的 fieldUpdated。"""
+        """比较新旧 runtime，逐字段发 fieldUpdated，逐分组发 groupUpdated。"""
         new_field_map: dict[str, Any] = self._runtime.get('fieldMap', {})
         old_field_map: dict[str, Any] = old_runtime.get('fieldMap', {})
+        new_groups: list[dict[str, Any]] = self._runtime.get('groups', [])
+        old_groups: list[dict[str, Any]] = old_runtime.get('groups', [])
 
-        if old_field_map.keys() != new_field_map.keys():
-            self.runtimeChanged.emit()
-            self.dirtyChanged.emit(self._state.dirty)
-            return
+        for i, (old_g, new_g) in enumerate(zip(old_groups, new_groups)):
+            if old_g.get('visible', True) != new_g.get('visible', True):
+                self.groupUpdated.emit(i, bool(new_g.get('visible', True)))
 
         for field_id, new_field in new_field_map.items():
             if old_field_map.get(field_id) != new_field:

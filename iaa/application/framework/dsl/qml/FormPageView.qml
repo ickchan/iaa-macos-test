@@ -25,8 +25,21 @@ ScrollView {
             delegate: GroupBox {
                 id: groupDelegate
                 required property var modelData
+                required property int index
+
+                property bool groupVisible: modelData.visible !== false
+
+                Connections {
+                    target: root.formController
+                    function onGroupUpdated(idx, visible) {
+                        if (idx === groupDelegate.index) {
+                            groupDelegate.groupVisible = visible
+                        }
+                    }
+                }
 
                 Layout.fillWidth: true
+                visible: groupDelegate.groupVisible
                 title: modelData.title || ""
 
                 ColumnLayout {
@@ -40,6 +53,7 @@ ScrollView {
                             required property string modelData
 
                             Layout.fillWidth: true
+                            visible: renderer.fieldVisible
                             implicitWidth: renderer.implicitWidth
                             implicitHeight: renderer.implicitHeight
 

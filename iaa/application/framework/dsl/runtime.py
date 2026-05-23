@@ -10,20 +10,22 @@ class RuntimeEngine:
         self.spec = spec
 
     def build_runtime(self, state: Any) -> dict[str, Any]:
+        # 不变式：所有 group 和 field 必须始终出现在输出中（即使 visible=False）。
+        # 这样 fieldMap.keys() 在正常交互中保持稳定，_emit_updates 可以走增量路径
+        # （fieldUpdated / groupUpdated），避免触发 runtimeChanged 全量重建。
+        # 若违反此不变式，分段按钮等带动画的控件会因 Repeater 重建而被销毁，动画丢失。
+        # 可见性控制由 QML 侧通过 fieldUpdated / groupUpdated 信号响应式处理。
         groups: list[dict[str, Any]] = []
         field_map: dict[str, Any] = {}
 
         for group in self.spec.groups:
             group_visible = group.visible(state) if callable(group.visible) else group.visible
-            if not group_visible:
-                continue
             field_ids: list[str] = []
             for field in group.fields:
                 runtime = self._build_field_runtime(field, state)
-                if runtime['visible']:
-                    field_ids.append(field.key)
-                    field_map[field.key] = runtime
-            groups.append({'title': group.title, 'fieldIds': field_ids})
+                field_ids.append(field.key)
+                field_map[field.key] = runtime
+            groups.append({'title': group.title, 'fieldIds': field_ids, 'visible': bool(group_visible)})
 
         return {'title': self.spec.title, 'groups': groups, 'fieldMap': field_map}
 

@@ -16,6 +16,7 @@ Item {
     // 工作副本：初始化时从 initialField 同步，后续由 fieldUpdated 信号更新。
     // 不使用绑定，避免因 runtimeChanged 全量刷新时被重置而打断用户输入。
     property var field: root.initialField
+    readonly property bool fieldVisible: root.field.visible !== false
 
     onInitialFieldChanged: root.field = root.initialField
 
@@ -33,6 +34,7 @@ Item {
 
     Loader {
         id: loader
+        active: root.fieldVisible
         anchors.left: parent.left
         anchors.right: parent.right
 
