@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtQml import QJSValue
 
-from iaa.application.framework.dsl import PreferencesContext, RuntimeEngine, SnapshotState
+from iaa.application.framework.dsl import RuntimeEngine, SnapshotState
+from ..forms.context import PreferencesContext
 from ..forms.preferences_form import build_preferences_form
 
 if TYPE_CHECKING:

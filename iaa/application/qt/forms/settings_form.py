@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Any, Callable, Literal, cast
 import platform
 
 from iaa.application.framework.dsl import (
     Checkbox,
     Custom,
-    FormContext,
     FormPage,
+    FormSpec,
     Group,
     IconItemPicker,
     NoticeBlock,
@@ -15,11 +15,23 @@ from iaa.application.framework.dsl import (
     Select,
     Text,
     TransferList,
+    bind,
     custom_ref,
-    of,
-    ref,
 )
-from ..models import SONG_KEEP_UNCHANGED, normalize_song_name_input
+from .context import FormContext
+from ..models import (
+    SONG_KEEP_UNCHANGED,
+    normalize_song_name_input,
+    LIFECYCLE_TYPE_DISPLAY_MAP,
+    CONNECTION_TYPE_DISPLAY_MAP,
+    SERVER_DISPLAY_MAP,
+    LINK_DISPLAY_MAP,
+    CONTROL_IMPL_DISPLAY_MAP,
+    RESOLUTION_METHOD_DISPLAY_MAP,
+    SONG_NAME_OPTIONS,
+    challenge_character_groups_for_ui,
+    challenge_awards_for_ui,
+)
 from iaa.config.schemas import (
     MuMuDevice,
     CustomDevice,
@@ -35,7 +47,7 @@ from iaa.definitions.enums import (
     ShopItem,
 )
 
-CTX = of(FormContext)
+ctx, ref = bind(FormContext)
 
 
 # ── 辅助判断 ──────────────────────────────────────────────────────────────────
@@ -313,14 +325,26 @@ def _on_server_change(state: FormContext, value: object) -> None:
 
 # ── Form ──────────────────────────────────────────────────────────────────────
 
-def build_settings_form() -> tuple[FormSpec, list]:
+def build_settings_form(
+    mumu_instances: list[dict[str, Any]],
+) -> tuple[FormSpec[FormContext], list[Callable[[FormContext], None]]]:
+    lifecycle_options = [
+        {'value': k, 'label': v} for k, v in LIFECYCLE_TYPE_DISPLAY_MAP.items()
+        if not (k in {'mumu', 'mumu_v5'} and platform.system() != 'Windows')
+        and not (k == 'playcover' and platform.system() != 'Darwin')
+    ]
+    control_impl_options = [{'value': k, 'label': v} for k, v in CONTROL_IMPL_DISPLAY_MAP.items()]
+    challenge_char_groups = challenge_character_groups_for_ui()
+    challenge_awards = challenge_awards_for_ui()
+    event_shop_items = [{'value': item.value, 'label': item.display('cn')} for item in ShopItem]
+
     with FormPage('配置') as page:
         with Group('游戏设置'):
             Segmented(
                 key='game.server',
                 label='服务器',
-                ref=ref(CTX.conf.game.server),
-                options=lambda s: s.meta.servers,
+                ref=ref(ctx.conf.game.server),
+                options=[{'value': k, 'label': v} for k, v in SERVER_DISPLAY_MAP.items()],
                 on_change=_on_server_change,
                 help_text='''广告：现招募维护者维护除日服以外的服务器适配~ 如果你有兴趣参与维护，请联系作者。
 <hr>
@@ -337,9 +361,9 @@ def build_settings_form() -> tuple[FormSpec, list]:
             Segmented(
                 key='game.linkAccount',
                 label='引继账号',
-                ref=ref(CTX.conf.game.link_account),
+                ref=ref(ctx.conf.game.link_account),
                 visible=lambda s: s.conf.game.server == 'jp',
-                options=lambda s: s.meta.linkAccounts,
+                options=[{'value': k, 'label': v} for k, v in LINK_DISPLAY_MAP.items()],
                 help_text='每次启动游戏的时候是否使用引继账号登录（仅限日服）',
             )
 
@@ -348,11 +372,7 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 key='device.lifecycleType',
                 label='设备类型',
                 ref=custom_ref(_get_lifecycle_type, _set_lifecycle_type),
-                options=lambda s: [
-                    o for o in s.meta.lifecycleTypes
-                    if not (o['value'] in {'mumu', 'mumu_v5'} and platform.system() != 'Windows')
-                    and not (o['value'] == 'playcover' and platform.system() != 'Darwin')
-                ],
+                options=lifecycle_options,
             )
             # MuMu 专属
             Custom(
@@ -361,7 +381,7 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 kind='mumu_picker',
                 ref=custom_ref(_get_mumu_instance_id, _set_mumu_instance_id),
                 visible=_lifecycle_is(MuMuDevice),
-                options=lambda s: s.meta.mumuInstances,
+                options=mumu_instances,
                 props={'refreshable': True},
             )
             Checkbox(
@@ -406,7 +426,7 @@ def build_settings_form() -> tuple[FormSpec, list]:
                 label='连接方式',
                 ref=custom_ref(_get_connection_type, _set_connection_type),
                 visible=_show_connection_section,
-                options=lambda s: s.meta.connectionTypes,
+                options=[{'value': k, 'label': v} for k, v in CONNECTION_TYPE_DISPLAY_MAP.items()],
             )
             # USB 字段
             Text(
@@ -449,9 +469,9 @@ def build_settings_form() -> tuple[FormSpec, list]:
             Segmented(
                 key='device.controlImpl',
                 label='控制方式',
-                ref=ref(CTX.conf.device.control_impl),
+                ref=ref(ctx.conf.device.control_impl),
                 options=lambda s: [
-                    o for o in s.meta.controlImpls
+                    o for o in control_impl_options
                     if not (o['value'] == 'nemu_ipc' and not isinstance(s.conf.device.lifecycle, MuMuDevice))
                 ],
                 help_text='对于 MuMu 模拟器，推荐使用 <b>Nemu IPC</b> 方式，对于其他模拟器与物理机，推荐使用 <b>scrcpy</b> 方式',
@@ -464,14 +484,14 @@ def build_settings_form() -> tuple[FormSpec, list]:
             Checkbox(
                 key='device.scrcpyVirtualDisplay',
                 label='使用虚拟显示器',
-                ref=ref(CTX.conf.device.scrcpy_virtual_display),
+                ref=ref(ctx.conf.device.scrcpy_virtual_display),
                 visible=lambda s: s.conf.device.control_impl == 'scrcpy',
             )
             Select(
                 key='device.resolutionMethod',
                 label='分辨率设置',
-                ref=ref(CTX.conf.device.resolution_method),
-                options=lambda s: s.meta.resolutionMethods,
+                ref=ref(ctx.conf.device.resolution_method),
+                options=[{'value': k, 'label': v} for k, v in RESOLUTION_METHOD_DISPLAY_MAP.items()],
                 with_reset_button=True,
             )
 
@@ -479,57 +499,57 @@ def build_settings_form() -> tuple[FormSpec, list]:
             Select(
                 key='live.songName',
                 label='歌曲名称',
-                ref=ref(CTX.conf.live.song_name).map(
+                ref=ref(ctx.conf.live.song_name).map(
                     to_ui=lambda v: v or SONG_KEEP_UNCHANGED,
                     from_ui=lambda v: normalize_song_name_input(str(v)),
                 ),
-                options=lambda s: s.meta.songNames,
+                options=SONG_NAME_OPTIONS,
             )
             Select(
                 key='live.apMultiplier',
                 label='AP 倍率',
-                ref=ref(CTX.conf.live.ap_multiplier).map(
+                ref=ref(ctx.conf.live.ap_multiplier).map(
                     to_ui=lambda v: '保持现状' if v is None else str(v),
                     from_ui=lambda v: None if str(v) == '保持现状' else int(str(v)),
                 ),
-                options=lambda s: s.meta.apMultipliers,
+                options=['保持现状', *[str(i) for i in range(0, 11)]],
             )
             Checkbox(
                 key='live.autoSetUnit',
                 label='自动编队',
-                ref=ref(CTX.conf.live.auto_set_unit),
+                ref=ref(ctx.conf.live.auto_set_unit),
             )
             Checkbox(
                 key='live.appendFc',
                 label='追加一次 FullCombo 演出',
-                ref=ref(CTX.conf.live.append_fc),
+                ref=ref(ctx.conf.live.append_fc),
             )
             Checkbox(
                 key='live.appendRandom',
                 label='追加一首随机歌曲',
-                ref=ref(CTX.conf.live.prepend_random),
+                ref=ref(ctx.conf.live.prepend_random),
             )
 
         with Group('挑战演出设置'):
             IconItemPicker(
                 key='challengeLive.characters',
                 label='角色',
-                ref=ref(CTX.conf.challenge_live.characters).map(
+                ref=ref(ctx.conf.challenge_live.characters).map(
                     to_ui=lambda values: values[0].value if values else None,
                     from_ui=lambda v: [GameCharacter(str(v))],
                 ),
-                options=lambda s: s.meta.challengeCharacterGroups,
+                options=challenge_char_groups,
                 cell_size=100,
                 icon_size=70,
             )
             IconItemPicker(
                 key='challengeLive.award',
                 label='奖励',
-                ref=ref(CTX.conf.challenge_live.award).map(
+                ref=ref(ctx.conf.challenge_live.award).map(
                     to_ui=lambda v: v.value,
                     from_ui=lambda v: ChallengeLiveAward(str(v)),
                 ),
-                options=lambda s: s.meta.challengeAwards,
+                options=challenge_awards,
                 cell_size=80,
                 icon_size=56,
             )
@@ -546,11 +566,11 @@ def build_settings_form() -> tuple[FormSpec, list]:
             TransferList(
                 key='eventShop.selectedItems',
                 label=None,
-                ref=ref(CTX.conf.event_shop.purchase_items).map(
+                ref=ref(ctx.conf.event_shop.purchase_items).map(
                     to_ui=lambda values: [item.value for item in values],
                     from_ui=lambda values: [ShopItem(str(v)) for v in values],
                 ),
-                options=lambda s: s.meta.eventShopItems,
+                options=event_shop_items,
                 reorderable=True,
                 height=220,
             )
@@ -559,18 +579,21 @@ def build_settings_form() -> tuple[FormSpec, list]:
             Checkbox(
                 key='scheduler.dumpSekaiHomeEnabled',
                 label='dump 烤森',
-                ref=ref(CTX.conf.scheduler.dump_sekai_home_enabled),
+                ref=ref(ctx.conf.scheduler.dump_sekai_home_enabled),
             )
             Checkbox(
                 key='developer.sekaiDumpPostProcess',
                 label='dump 烤森 - 后处理与预打标',
-                ref=ref(CTX.conf.developer.sekai_dump_post_process),
+                ref=ref(ctx.conf.developer.sekai_dump_post_process),
             )
             Checkbox(
                 key='developer.screenRecordingEnabled',
                 label='自动录屏（需安装 ffmpeg）',
-                ref=ref(CTX.conf.developer.screen_recording_enabled),
+                ref=ref(ctx.conf.developer.screen_recording_enabled),
                 help_text='脚本启动时自动录屏，结束时自动结束。输出到 dumps/screen_records/ 目录。',
             )
 
-    return page.spec, page.hooks
+    return (
+        cast(FormSpec[FormContext], page.spec),
+        cast(list[Callable[[FormContext], None]], page.hooks),
+    )

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from .specs import FieldSpec, FormSpec
 
+TCtx = TypeVar('TCtx')
 
-class RuntimeEngine:
-    def __init__(self, spec: FormSpec) -> None:
+
+class RuntimeEngine(Generic[TCtx]):
+    def __init__(self, spec: FormSpec[TCtx]) -> None:
         self.spec = spec
 
-    def build_runtime(self, state: Any) -> dict[str, Any]:
+    def build_runtime(self, state: TCtx) -> dict[str, Any]:
         # 不变式：所有 group 和 field 必须始终出现在输出中（即使 visible=False）。
         # 这样 fieldMap.keys() 在正常交互中保持稳定，_emit_updates 可以走增量路径
         # （fieldUpdated / groupUpdated），避免触发 runtimeChanged 全量重建。
@@ -29,14 +31,14 @@ class RuntimeEngine:
 
         return {'title': self.spec.title, 'groups': groups, 'fieldMap': field_map}
 
-    def find_field(self, field_id: str) -> FieldSpec | None:
+    def find_field(self, field_id: str) -> FieldSpec[TCtx] | None:
         for group in self.spec.groups:
             for field in group.fields:
                 if field.key == field_id:
                     return field
         return None
 
-    def _build_field_runtime(self, field: FieldSpec, state: Any) -> dict[str, Any]:
+    def _build_field_runtime(self, field: FieldSpec[TCtx], state: TCtx) -> dict[str, Any]:
         value = field.ref.get(state)
         visible = field.visible(state) if callable(field.visible) else field.visible
         enabled = field.enabled(state) if callable(field.enabled) else field.enabled

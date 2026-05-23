@@ -6,21 +6,10 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtQml import QJSValue
 
-from iaa.definitions.enums import ShopItem
-
-from iaa.application.framework.dsl import FormContext, FormMeta, RuntimeEngine, SnapshotState
+from iaa.application.framework.dsl import RuntimeEngine, SnapshotState
+from ..forms.context import FormContext
 from ..forms.settings_form import build_settings_form
-from ..models import (
-    CONTROL_IMPL_DISPLAY_MAP,
-    DEFAULT_MUMU_INSTANCE_LABEL,
-    LINK_DISPLAY_MAP,
-    RESOLUTION_METHOD_DISPLAY_MAP,
-    SERVER_DISPLAY_MAP,
-    SONG_NAME_OPTIONS,
-    challenge_awards_for_ui,
-    challenge_character_groups_for_ui,
-    challenge_characters_for_ui,
-)
+from ..models import DEFAULT_MUMU_INSTANCE_LABEL
 
 if TYPE_CHECKING:
     from iaa.application.service.iaa_service import IaaService
@@ -53,7 +42,8 @@ class SettingsController(QObject):
     def __init__(self, iaa_service: 'IaaService', parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._iaa = iaa_service
-        self._spec, self._form_hooks = build_settings_form()
+        self._mumu_instances: list[dict[str, Any]] = [{'id': '', 'label': DEFAULT_MUMU_INSTANCE_LABEL}]
+        self._spec, self._form_hooks = build_settings_form(self._mumu_instances)
         self._engine = RuntimeEngine(self._spec)
         self._state = SnapshotState(
             self._make_context(),
@@ -89,7 +79,6 @@ class SettingsController(QObject):
         return FormContext(
             conf=self._iaa.config.conf,
             shared=self._iaa.config.shared,
-            meta=self._build_meta(),
         )
 
     def _sync_context_back(self) -> None:
@@ -97,31 +86,11 @@ class SettingsController(QObject):
         self._iaa.config.shared = self._state.context.shared
 
     def _reload(self) -> None:
+        self._mumu_instances[:] = [{'id': '', 'label': DEFAULT_MUMU_INSTANCE_LABEL}]
         self._state.reset(self._make_context())
         self._recompute_runtime()
         self.runtimeChanged.emit()
         self.dirtyChanged.emit(self._state.dirty)
-
-    def _build_meta(self) -> FormMeta:
-        from ..models import LIFECYCLE_TYPE_DISPLAY_MAP, CONNECTION_TYPE_DISPLAY_MAP
-        return FormMeta(
-            profiles=[{'value': name, 'label': name} for name in self._iaa.config.list()],
-            lifecycleTypes=[{'value': key, 'label': label} for key, label in LIFECYCLE_TYPE_DISPLAY_MAP.items()],
-            connectionTypes=[{'value': key, 'label': label} for key, label in CONNECTION_TYPE_DISPLAY_MAP.items()],
-            servers=[{'value': key, 'label': label} for key, label in SERVER_DISPLAY_MAP.items()],
-            linkAccounts=[{'value': key, 'label': label} for key, label in LINK_DISPLAY_MAP.items()],
-            controlImpls=[{'value': key, 'label': label} for key, label in CONTROL_IMPL_DISPLAY_MAP.items()],
-            resolutionMethods=[
-                {'value': key, 'label': label} for key, label in RESOLUTION_METHOD_DISPLAY_MAP.items()
-            ],
-            songNames=SONG_NAME_OPTIONS,
-            apMultipliers=['保持现状', *[str(i) for i in range(0, 11)]],
-            challengeCharacterGroups=challenge_character_groups_for_ui(),
-            challengeCharacters=challenge_characters_for_ui(),
-            challengeAwards=challenge_awards_for_ui(),
-            eventShopItems=[{'value': item.value, 'label': item.display('cn')} for item in ShopItem],
-            mumuInstances=[{'id': '', 'label': DEFAULT_MUMU_INSTANCE_LABEL}],
-        )
 
     def _recompute_runtime(self) -> None:
         runtime = self._engine.build_runtime(self._state.context)
@@ -164,7 +133,7 @@ class SettingsController(QObject):
         lc = self._state.context.conf.device.lifecycle
         emulator = lc.type if isinstance(lc, MuMuDevice) else ''
         payload = json.loads(self._build_mumu_instances_payload(emulator, preferred_id))
-        self._state.context.meta.mumuInstances = payload.get(
+        self._mumu_instances[:] = payload.get(
             'items', [{'id': '', 'label': DEFAULT_MUMU_INSTANCE_LABEL}]
         )
 
@@ -258,12 +227,8 @@ class SettingsController(QObject):
 
     @Slot(result=str)
     def profilesJson(self) -> str:
-        profiles = self._state.context.meta.profiles
+        profiles = [{'value': name, 'label': name} for name in self._iaa.config.list()]
         return json.dumps({'profiles': profiles}, ensure_ascii=False)
-
-    @Slot(result=str)
-    def optionsJson(self) -> str:
-        return json.dumps(self._state.context.meta.model_dump(mode='json'), ensure_ascii=False)
 
     @Slot(str, 'QVariant')
     def setValue(self, field_id: str, value: Any) -> None:
@@ -304,7 +269,6 @@ class SettingsController(QObject):
             self._sync_context_back()
             self._iaa.config.save()
             self._state.mark_saved()
-            self._state.context.meta = self._build_meta()
             self._recompute_runtime()
             self.runtimeChanged.emit()
             self.dirtyChanged.emit(self._state.dirty)
@@ -318,7 +282,6 @@ class SettingsController(QObject):
     def discard(self) -> bool:
         self._state.discard()
         self._sync_context_back()
-        self._state.context.meta = self._build_meta()
         self._recompute_runtime()
         self.runtimeChanged.emit()
         self.dirtyChanged.emit(self._state.dirty)
