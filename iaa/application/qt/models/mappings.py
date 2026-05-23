@@ -96,7 +96,11 @@ def challenge_character_groups_for_ui() -> list[dict[str, object]]:
         {
             'group': group_name,
             'options': [
-                {'value': character.value, 'label': f'{character.last_name_cn}{character.first_name_cn}'}
+                {
+                    'value': character.value,
+                    'label': f'{character.last_name_cn}{character.first_name_cn}',
+                    'image': f'chibi/{character.value}.png',
+                }
                 for character in characters
             ],
         }
@@ -115,8 +119,18 @@ def challenge_characters_for_ui() -> list[dict[str, str]]:
     return all_characters
 
 
+_CHALLENGE_AWARD_IMAGES: dict[ChallengeLiveAward, str] = {
+    ChallengeLiveAward.Crystal: 'game_items/Jewel.png',
+    ChallengeLiveAward.MusicCard: 'game_items/Song_card.png',
+    ChallengeLiveAward.MiracleGem: 'game_items/Miracle_gem.png',
+    ChallengeLiveAward.MagicCloth: 'game_items/Magic_cloth.png',
+    ChallengeLiveAward.Coin: 'game_items/Coin.png',
+    ChallengeLiveAward.IntermediatePracticeScore: 'game_items/Practice_score_(intermediate).png',
+}
+
+
 def challenge_awards_for_ui() -> list[dict[str, str]]:
     return [
-        {'value': award.value, 'label': label}
+        {'value': award.value, 'label': label, 'image': _CHALLENGE_AWARD_IMAGES.get(award, '')}
         for award, label in ChallengeLiveAward.display_map_cn().items()
     ]

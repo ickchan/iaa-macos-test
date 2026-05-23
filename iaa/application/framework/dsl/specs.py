@@ -301,6 +301,68 @@ def Select(
     )
 
 
+def IconItemPicker(
+    key: str,
+    label: str | None,
+    *,
+    ref: Ref[FormContext, Any],
+    default: Any = None,
+    visible: Predicate | bool = True,
+    enabled: Predicate | bool = True,
+    options: OptionsProvider | list[Any] | None = None,
+    columns: int | None = None,
+    cell_size: int | None = None,
+    icon_size: int | None = None,
+    popup_max_height: int | None = None,
+    popup_padding: int | None = None,
+    show_label: bool | None = None,
+    cell_radius: int | None = None,
+    help_text: str | None = None,
+    props: dict[str, Any] | None = None,
+    validators: list[Validator] | None = None,
+    on_change: OnChangeHook | None = None,
+) -> FieldSpec:
+    """声明一个图标选择字段。
+
+    Args:
+        columns: 固定列数。``None`` 为自动模式，根据 ``cell_size`` 自适应宽度。
+        props: 渲染层 escape hatch，用于尚未提升为 typed 参数的实验性配置。
+    """
+    merged_props = {} if props is None else dict(props)
+    # columns=None 表示自动模式，不写入 props，QML 侧遇到 undefined 时进入自适应逻辑
+    if columns is not None:
+        merged_props['columns'] = columns
+    if cell_size is not None:
+        merged_props['cellSize'] = cell_size
+    if icon_size is not None:
+        merged_props['iconSize'] = icon_size
+    if popup_max_height is not None:
+        merged_props['popupMaxHeight'] = popup_max_height
+    if popup_padding is not None:
+        merged_props['popupPadding'] = popup_padding
+    if show_label is not None:
+        merged_props['showLabel'] = show_label
+    if cell_radius is not None:
+        merged_props['cellRadius'] = cell_radius
+
+    return _append_field(
+        FieldSpec(
+            key=key,
+            kind='icon_item_picker',
+            label=label,
+            ref=ref,
+            help_text=help_text,
+            default=default,
+            visible=visible,
+            enabled=enabled,
+            options=options,
+            props=merged_props,
+            validators=[] if validators is None else validators,
+            on_change=on_change,
+        )
+    )
+
+
 def Segmented(
     key: str,
     label: str | None,

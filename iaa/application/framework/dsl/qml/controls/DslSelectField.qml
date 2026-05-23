@@ -72,11 +72,7 @@ ColumnLayout {
                         return
                     }
                     let selected = options[index]
-                    if (root.field.props && root.field.props.singleFromList) {
-                        root.formController.setValue(root.field.id, [root.itemValue(selected)])
-                    } else {
-                        root.formController.setValue(root.field.id, root.itemValue(selected))
-                    }
+                    root.formController.setValue(root.field.id, root.itemValue(selected))
                 }
 
                 contentItem: Text {

@@ -14,9 +14,7 @@ RowLayout {
 
     RowLayout {
         Layout.preferredWidth: 120
-        Layout.alignment: Qt.AlignTop
-        // Adjust vertically to align with text input which has border/padding
-        Layout.topMargin: 8
+        Layout.alignment: Qt.AlignVCenter
         spacing: 6
 
         Label {

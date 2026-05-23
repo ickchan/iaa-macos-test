@@ -48,6 +48,7 @@ Item {
             case "transfer_list": return transferListComponent
             case "hotkey": return hotkeyFieldComponent
             case "notice_block": return noticeBlockComponent
+            case "icon_item_picker": return iconItemPickerComponent
             default: return unsupportedComponent
             }
         }
@@ -112,6 +113,14 @@ Item {
     Component {
         id: noticeBlockComponent
         DslNoticeBlock {
+            field: root.field
+            formController: root.formController
+        }
+    }
+
+    Component {
+        id: iconItemPickerComponent
+        DslIconItemPicker {
             field: root.field
             formController: root.formController
         }

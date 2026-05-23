@@ -9,6 +9,7 @@ from iaa.application.framework.dsl import (
     FormContext,
     FormPage,
     Group,
+    IconItemPicker,
     NoticeBlock,
     Segmented,
     Select,
@@ -510,17 +511,18 @@ def build_settings_form() -> tuple[FormSpec, list]:
             )
 
         with Group('挑战演出设置'):
-            Select(
+            IconItemPicker(
                 key='challengeLive.characters',
                 label='角色',
                 ref=ref(CTX.conf.challenge_live.characters).map(
-                    to_ui=lambda values: [item.value for item in values],
-                    from_ui=lambda values: [GameCharacter(str(v)) for v in values],
+                    to_ui=lambda values: values[0].value if values else None,
+                    from_ui=lambda v: [GameCharacter(str(v))],
                 ),
-                options=lambda s: s.meta.challengeCharacters,
-                props={'singleFromList': True},
+                options=lambda s: s.meta.challengeCharacterGroups,
+                cell_size=100,
+                icon_size=70,
             )
-            Select(
+            IconItemPicker(
                 key='challengeLive.award',
                 label='奖励',
                 ref=ref(CTX.conf.challenge_live.award).map(
@@ -528,6 +530,8 @@ def build_settings_form() -> tuple[FormSpec, list]:
                     from_ui=lambda v: ChallengeLiveAward(str(v)),
                 ),
                 options=lambda s: s.meta.challengeAwards,
+                cell_size=80,
+                icon_size=56,
             )
 
         with Group('CM 设置'):

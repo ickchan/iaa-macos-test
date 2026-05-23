@@ -67,7 +67,7 @@ Rectangle {
                     Image {
                         anchors.fill: parent
                         anchors.margins: 2
-                        source: App.Globals.assetPath("chibi/chr_il_1.png")
+                        source: App.Globals.assetPath("chibi/ichika.png")
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                     }
