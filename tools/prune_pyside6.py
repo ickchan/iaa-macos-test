@@ -22,8 +22,39 @@ PYSIDE6_KEEP_MODULES = {
     "QtWidgets",
     "QtQml",
     "QtQuick",
+    # QuickControls2 — core + impl + all built-in styles
     "QtQuickControls2",
-    "QtSvg",          # 0.1 MB — QIcon may load SVG assets
+    "QtQuickControls2Impl",
+    "QtQuickControls2Basic",
+    "QtQuickControls2BasicStyleImpl",
+    "QtQuickControls2Fusion",
+    "QtQuickControls2FusionStyleImpl",
+    "QtQuickControls2Imagine",
+    "QtQuickControls2ImagineStyleImpl",
+    "QtQuickControls2Material",
+    "QtQuickControls2MaterialStyleImpl",
+    "QtQuickControls2Universal",
+    "QtQuickControls2UniversalStyleImpl",
+    "QtQuickControls2FluentWinUI3StyleImpl",
+    "QtQuickControls2WindowsStyleImpl",
+    "QtQuickTemplates2",          # transitive dep of all QuickControls2 DLLs
+    # QML engine transitive dependencies
+    "QtQmlMeta",
+    "QtQmlModels",
+    "QtQmlWorkerScript",
+    "QtNetwork",
+    "QtOpenGL",
+    # QML plugin modules
+    "QtQuickDialogs2",
+    "QtQuickDialogs2QuickImpl",
+    "QtQuickDialogs2Utils",
+    "QtQuickEffects",
+    "QtQuickLayouts",
+    "QtQuickShapes",
+    "QtQmlLocalStorage",
+    "QtSql",
+    # Assets
+    "QtSvg",                      # 0.1 MB — QIcon may load SVG assets
 }
 
 # QML import directories to keep inside PySide6/qml/
@@ -152,12 +183,6 @@ def prune_installed_pyside6(pyside6_dir: Path) -> int:
             "QtQuick/Timeline",
             "QtQuick/VectorImage",
             "QtQuick/tooling",
-            # Non-default QML styles (Windows + Basic are kept)
-            "QtQuick/Controls/FluentWinUI3",
-            "QtQuick/Controls/Fusion",
-            "QtQuick/Controls/Imagine",
-            "QtQuick/Controls/Material",
-            "QtQuick/Controls/Universal",
             "QtQuick/Controls/designer",
         ]
         for pattern in _qml_subdir_excludes:
