@@ -53,6 +53,13 @@ Rectangle {
             implicitHeight: 82
             color: "transparent"
 
+            // Drag handle: clicking anywhere on the header (avatar + title area)
+            // triggers a native OS window move, equivalent to HTCAPTION drag.
+            MouseArea {
+                anchors.fill: parent
+                onPressed: window.startSystemMove()
+            }
+
             RowLayout {
                 anchors.fill: parent
                 // anchors.margins: 12

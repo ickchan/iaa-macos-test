@@ -13,6 +13,9 @@ ApplicationWindow {
     height: 680
     visible: true
     title: window.appCtrl ? window.appCtrl.windowTitle : ""
+    flags: Qt.platform.os === "windows"
+        ? (Qt.Window | Qt.FramelessWindowHint)
+        : Qt.Window
     font.family: Qt.platform.os === "windows"
         ? "Microsoft YaHei UI"
         : Qt.platform.os === "osx"
@@ -93,63 +96,80 @@ ApplicationWindow {
         unsavedChangesDialog: unsavedChangesDialog
     }
 
-    RowLayout {
+    ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        SideNavigationBar {
-            id: sideNav
-            Layout.fillHeight: true
-            // model: ["控制", "配置", "偏好", "帮助", "关于"]
-            model: ["控制", "配置", "偏好", "日志", "关于"]
-            currentConfig: App.ProfileStore.currentProfileName
-
-            onCurrentChanging: function(index, previousIndex) {
-                navigation.requestGuardedAction("切换页面", function() {
-                    sideNav.confirmSwitch(index)
-                })
-            }
-
-            onProfileSwitchRequested: function(name) {
-                navigation.requestGuardedAction("切换配置", function() {
-                    window.settingsCtrl.switchProfile(name)
-                })
-            }
-
-            onOpenConfigManager: {
-                configManagerDialog.open()
-            }
+        // Full-width title bar: window controls on the right, rest is drag area.
+        // Only shown on Windows (frameless mode); native title bar handles other platforms.
+        // Will evolve into a tab bar when multi-config tabs are introduced.
+        TitleBar {
+            Layout.fillWidth: true
+            visible: Qt.platform.os === "windows"
+            height: visible ? 32 : 0
+            onMinimizeRequested: window.showMinimized()
+            onCloseRequested: window.requestAppClose()
         }
 
-        StackLayout {
-            id: stack
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: sideNav.currentIndex
+            spacing: 0
 
-            ControlPage {
-                id: controlPage
-                autoLiveDialog: autoLiveDialogView
+            SideNavigationBar {
+                id: sideNav
+                Layout.fillHeight: true
+                // model: ["控制", "配置", "偏好", "帮助", "关于"]
+                model: ["控制", "配置", "偏好", "日志", "关于"]
+                currentConfig: App.ProfileStore.currentProfileName
+
+                onCurrentChanging: function(index, previousIndex) {
+                    navigation.requestGuardedAction("切换页面", function() {
+                        sideNav.confirmSwitch(index)
+                    })
+                }
+
+                onProfileSwitchRequested: function(name) {
+                    navigation.requestGuardedAction("切换配置", function() {
+                        window.settingsCtrl.switchProfile(name)
+                    })
+                }
+
+                onOpenConfigManager: {
+                    configManagerDialog.open()
+                }
             }
 
-            SettingsPage {
-                id: settingsPage
-                formController: window.settingsCtrl
+            StackLayout {
+                id: stack
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: sideNav.currentIndex
+
+                ControlPage {
+                    id: controlPage
+                    autoLiveDialog: autoLiveDialogView
+                }
+
+                SettingsPage {
+                    id: settingsPage
+                    formController: window.settingsCtrl
+                }
+
+                PreferencesPage {
+                    id: preferencesPage
+                    prefsController: window.prefsCtrl
+                }
+
+                LogPage {
+                    id: logPage
+                    logBridge: window.logBridgeObj
+                }
+
+                // HelpPage {}
+
+                AboutPage {}
             }
-
-            PreferencesPage {
-                id: preferencesPage
-                prefsController: window.prefsCtrl
-            }
-
-            LogPage {
-                id: logPage
-                logBridge: window.logBridgeObj
-            }
-
-            // HelpPage {}
-
-            AboutPage {}
         }
     }
 
