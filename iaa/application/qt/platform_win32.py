@@ -3,7 +3,7 @@ import ctypes
 import sys
 from ctypes import wintypes
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Signal
+from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Property, Signal
 from PySide6.QtQuick import QQuickWindow
 
 # ── DWM 背景特效 ──────────────────────────────────────────────────────────────
@@ -148,8 +148,8 @@ _WS_MINIMIZEBOX = 0x00020000
 _WS_SYSMENU     = 0x00080000
 
 # 与 TitleBar.qml 匹配的标题栏几何参数（逻辑像素 / 设备无关像素）
-_TITLE_BAR_H = 32   # 自定义标题栏高度
-_BTN_W       = 46   # 每个窗口控制按钮宽度
+_TITLE_BAR_H = 42   # TitleBar 高度（8px 拖拽条 + 34px tab 行）
+_BTN_W       = 46   # 窗口控件按钮宽度（close/max/min）
 _RESIZE_EDGE = 4    # 调整大小命中区域宽度
 
 
@@ -189,6 +189,22 @@ class _MARGINS(ctypes.Structure):
     ]
 
 
+class TabBarHitTestBridge(QObject):
+    """QML 通过此对象将 tab 区域右边界（逻辑像素）实时同步给 Win32 hit-test。"""
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._tab_interactive_end: int = 0
+
+    @Property(int)
+    def tabInteractiveEnd(self) -> int:
+        return self._tab_interactive_end
+
+    @tabInteractiveEnd.setter
+    def tabInteractiveEnd(self, value: int) -> None:
+        self._tab_interactive_end = value
+
+
 class _MaxHoverBridge(QObject):
     """将最大化按钮的 WM_NCMOUSEMOVE/WM_NCMOUSELEAVE 转发给 QML。"""
     hoveredChanged = Signal(bool)
@@ -215,10 +231,11 @@ class WindowEventFilter(QAbstractNativeEventFilter):
         maxHoverBridge，供 QML 渲染悬停高亮。
     """
 
-    def __init__(self, window: QQuickWindow, max_hover_bridge: _MaxHoverBridge) -> None:
+    def __init__(self, window: QQuickWindow, max_hover_bridge: _MaxHoverBridge, tab_bar_bridge: TabBarHitTestBridge) -> None:
         super().__init__()
         self._hwnd = int(window.winId())
         self.maxHoverBridge = max_hover_bridge
+        self._tab_bar_bridge = tab_bar_bridge
 
     def nativeEventFilter(self, eventType: bytes, message: int) -> tuple[bool, int]:
         if eventType != b"windows_generic_MSG":
@@ -264,7 +281,6 @@ class WindowEventFilter(QAbstractNativeEventFilter):
         dpi    = ctypes.windll.user32.GetDpiForWindow(msg.hWnd)
         scale  = dpi / 96.0
         tb_h   = round(_TITLE_BAR_H * scale)
-        btn_w  = round(_BTN_W       * scale)
         border = round(_RESIZE_EDGE * scale)
         is_max = bool(ctypes.windll.user32.IsZoomed(msg.hWnd))
 
@@ -274,8 +290,8 @@ class WindowEventFilter(QAbstractNativeEventFilter):
             bottom_e = wy >= wh - border
             left_e   = wx < border
             right_e  = wx >= ww - border
-            if top_e    and left_e:  return True, HTTOPLEFT   # noqa: E701
-            if top_e    and right_e: return True, HTTOPRIGHT  # noqa: E701
+            if top_e    and left_e:  return True, HTTOPLEFT      # noqa: E701
+            if top_e    and right_e: return True, HTTOPRIGHT     # noqa: E701
             if bottom_e and left_e:  return True, HTBOTTOMLEFT   # noqa: E701
             if bottom_e and right_e: return True, HTBOTTOMRIGHT  # noqa: E701
             if top_e:    return True, HTTOP     # noqa: E701
@@ -283,16 +299,29 @@ class WindowEventFilter(QAbstractNativeEventFilter):
             if left_e:   return True, HTLEFT    # noqa: E701
             if right_e:  return True, HTRIGHT   # noqa: E701
 
-        # ── 标题栏区域（顶部 32px）──────────────────────────────────────────
+        # ── TitleBar 区域（顶部 40px）────────────────────────────────────────
+        # Chrome 风格：从右向左声明固定按钮区（HTCLIENT），其余空白为拖拽区（HTCAPTION），
+        # tab 按钮区由 QML 实时更新 tabInteractiveEnd 以确保 HTCLIENT。
         if wy < tb_h:
-            # 按钮从右到左：关闭 | 最大化 | 最小化
-            if wx >= ww - btn_w:
-                return False, 0          # 关闭    → HTCLIENT，由 QML 处理
-            if wx >= ww - btn_w * 2:
-                return True, HTMAXBUTTON # 最大化  → 系统处理贴靠布局 + 切换
-            if wx >= ww - btn_w * 3:
-                return False, 0          # 最小化  → HTCLIENT，由 QML 处理
-            return True, HTCAPTION       # 其余区域 → 拖拽 / 双击
+            # 右侧固定窗口控件：close(46) | max(46) | min(46)
+            # + 和 ⚙ 按钮紧跟最后一个 tab，已包含在 tabInteractiveEnd 内
+            close_w = round(_BTN_W * scale)
+            max_w   = round(_BTN_W * scale)
+            min_w   = round(_BTN_W * scale)
+
+            if wx >= ww - close_w:
+                return False, 0           # close → HTCLIENT，由 QML 处理
+            if wx >= ww - close_w - max_w:
+                return True, HTMAXBUTTON  # max → 系统处理贴靠布局 + 切换
+            if wx >= ww - close_w - max_w - min_w:
+                return False, 0           # min → HTCLIENT，由 QML 处理
+
+            # tab + + + ⚙ 交互区（左侧，宽度由 QML 通过 tabBarBridge 实时同步）
+            tab_end = round(self._tab_bar_bridge.tabInteractiveEnd * scale)
+            if wx < tab_end:
+                return False, 0           # tab/+/⚙ → HTCLIENT，由 QML 处理
+
+            return True, HTCAPTION        # 空白区域 → 拖拽 / 双击最大化
 
         return False, 0
 

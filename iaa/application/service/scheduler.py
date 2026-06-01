@@ -105,7 +105,7 @@ def _restore_resolution(device: 'Device', original_resolution: str) -> None:
 
 
 class SchedulerService:
-    def __init__(self, iaa_service: 'IaaService'):
+    def __init__(self, iaa_service: 'IaaService', on_prepare_context: 'Callable[[], None] | None' = None):
         self.iaa = iaa_service
         self._thread: threading.Thread | None = None
         self.__running: bool = False
@@ -117,13 +117,17 @@ class SchedulerService:
         self.on_error: Callable[[Exception], None] | None = None
         """
         任务发生错误时执行的回调函数。注意，调用可能来自其他线程。
-        
+
         仅在异步执行任务时有效。同步执行任务可自行 try-except。
         """
         self.current_task_id: str | None = None
         """当前正在执行的任务 ID"""
         self.current_task_name: str | None = None
         """当前正在执行的任务名称"""
+        self._flow_controller = None
+        """当前运行线程的 FlowController 直接引用，用于跨线程安全中断。"""
+        self._on_prepare_context: 'Callable[[], None] | None' = on_prepare_context
+        """上下文准备完毕后的钩子（可在此处通过传入回调自定义 ContextVar 初始化逻辑）。"""
         self.device: Device | None = None
         """当前正在执行的任务的设备"""
         self._device_started: bool = False
@@ -300,6 +304,7 @@ class SchedulerService:
                     finally:
                         self._device_started = False
                 self.device = None
+                self._flow_controller = None
                 self._thread = None
                 self.__running = False
                 # 停止阶段结束
@@ -351,10 +356,10 @@ class SchedulerService:
         if not self.__running or self._thread is None:
             logger.warning("Scheduler not running, skip stop.")
             return
-        from kotonebot.backend.context import vars
         self.__stop_requested = True
         self.is_stopping = True
-        vars.flow.request_interrupt()
+        if self._flow_controller is not None:
+            self._flow_controller.request_interrupt()
         if block:
             self._thread.join()
         # Note: device.stop() and resolution restore are handled in finally block of _runner
@@ -540,7 +545,6 @@ class SchedulerService:
                 return _apply_impl(host)
 
             elif isinstance(connection, TcpConnection):
-                from iaa.application.service.custom_emulator import CustomEmulatorInstance
                 if connection.port is None:
                     raise ValueError('TCP 连接需要填写端口。')
                 tcp_instance = CustomEmulatorInstance(
@@ -664,6 +668,12 @@ class SchedulerService:
             self._original_resolution = None
         
         init_context(target_device=device, force=True)
+        from kotonebot.backend.context.context import get_context
+        _ctx = get_context()
+        if _ctx is not None:
+            self._flow_controller = _ctx.vars.flow
+        if self._on_prepare_context is not None:
+            self._on_prepare_context()
         self.device = device
 
         # 初始化框架全局配置

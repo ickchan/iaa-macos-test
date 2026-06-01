@@ -15,6 +15,7 @@ Dialog {
     property var configNames: []
     required property var navigation
     required property var settingsCtrl
+    required property var tabManager
 
     function reload() {
         root.configNames = JSON.parse(App.ProfileStore.profilesJson).profiles || []
@@ -149,7 +150,7 @@ Dialog {
                     onClicked: {
                         var oldName = renameDialog.targetConfigName
                         var newName = renameDialog.newName.trim()
-                        var isCurrent = oldName === App.ProfileStore.currentProfileName
+                        var isCurrent = root.tabManager.isTabOpen(oldName)
                         var runner = function() {
                             root.settingsCtrl.renameProfile(oldName, newName)
                         }
@@ -193,15 +194,12 @@ Dialog {
                     highlighted: true
                     onClicked: {
                         var name = deleteConfirmDialog.targetConfigName
-                        var isCurrent = name === App.ProfileStore.currentProfileName
-                        var runner = function() {
-                            root.settingsCtrl.deleteProfile(name)
+                        // 如果该配置的 tab 正在运行，拒绝删除
+                        if (!root.tabManager.closeTabForConfig(name)) {
+                            deleteConfirmDialog.close()
+                            return
                         }
-                        if (isCurrent) {
-                            root.navigation.requestGuardedAction("删除当前配置", runner)
-                        } else {
-                            runner()
-                        }
+                        root.settingsCtrl.deleteProfile(name)
                         deleteConfirmDialog.close()
                     }
                 }

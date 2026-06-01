@@ -9,6 +9,7 @@ class TelemetryConfig(BaseModel):
 
 class ProfilesConfig(BaseModel):
     last_used: str | None = None
+    open_tabs: list[str] = []
 
 
 class InterfaceConfig(BaseModel):

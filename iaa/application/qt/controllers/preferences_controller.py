@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtQml import QJSValue
 
+from iaa.config import manager as config_manager
 from iaa.application.framework.dsl import RuntimeEngine, SnapshotState
 from ..forms.context import PreferencesContext
 from ..forms.preferences_form import build_preferences_form
-
-if TYPE_CHECKING:
-    from iaa.application.service.iaa_service import IaaService
 
 
 def _normalize_qt_value(value: Any) -> Any:
@@ -34,9 +32,8 @@ class PreferencesController(QObject):
     fieldUpdated = Signal(str, str)  # (field_id, field_json)
     groupUpdated = Signal(int, bool)  # (group_index, visible)
 
-    def __init__(self, iaa_service: 'IaaService', parent: QObject | None = None) -> None:
+    def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._iaa = iaa_service
         self._spec, self._form_hooks = build_preferences_form()
         self._engine = RuntimeEngine(self._spec)
         self._state = SnapshotState(
@@ -61,10 +58,10 @@ class PreferencesController(QObject):
         return {'shared': snapshot['shared'].model_dump(mode='json')}
 
     def _make_context(self) -> PreferencesContext:
-        return PreferencesContext(shared=self._iaa.config.shared)
+        return PreferencesContext(shared=config_manager.read_shared())
 
     def _sync_context_back(self) -> None:
-        self._iaa.config.shared = self._state.context.shared
+        config_manager.update_shared(self._state.context.shared)
 
     def _reload(self) -> None:
         self._state.reset(self._make_context())
@@ -126,8 +123,7 @@ class PreferencesController(QObject):
     @Slot(result=bool)
     def save(self) -> bool:
         try:
-            self._sync_context_back()
-            self._iaa.config.save_shared()
+            config_manager.write_shared(self._state.context.shared)
             self._state.mark_saved()
             self._recompute_runtime()
             self.runtimeChanged.emit()
@@ -149,8 +145,8 @@ class PreferencesController(QObject):
 
     @Slot(result=str)
     def hotkeyStart(self) -> str:
-        return self._iaa.config.shared.hotkeys.start or ''
+        return config_manager.read_shared().hotkeys.start or ''
 
     @Slot(result=str)
     def hotkeyStop(self) -> str:
-        return self._iaa.config.shared.hotkeys.stop or ''
+        return config_manager.read_shared().hotkeys.stop or ''

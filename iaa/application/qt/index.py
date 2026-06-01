@@ -15,11 +15,15 @@ from PySide6.QtQuick import QQuickWindow
 from PySide6.QtWidgets import QApplication
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from iaa.config import manager as config_manager
+from iaa.application.service.iaa_service import IaaService
 from .controllers import AppController
+from .controllers.profile_store_backend import ProfileStoreBackend
 
 if sys.platform == 'win32':
     from .platform_win32 import (
         _MaxHoverBridge,
+        TabBarHitTestBridge,
         WindowEventFilter,
         apply_window_style,
         setup_frameless_window,
@@ -75,27 +79,33 @@ def main() -> None:
     QQuickStyle.setStyle("FluentWinUI3")
 
     controller = AppController(log_bridge=log_bridge)
-    interface = controller.service.config.shared.interface
+
+    interface = config_manager.read_shared().interface
     apply_color_scheme(app, interface.color_scheme)
 
+    profileStoreBackend = ProfileStoreBackend(controller.tabManager, controller)
+
     max_hover_bridge = _MaxHoverBridge() if sys.platform == 'win32' else None
+    tab_bar_bridge = TabBarHitTestBridge() if sys.platform == 'win32' else None
 
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty('appController', controller)
-    engine.rootContext().setContextProperty('runController', controller.runController)
-    engine.rootContext().setContextProperty('settingsController', controller.settingsController)
+    engine.rootContext().setContextProperty('tabManager', controller.tabManager)
+    engine.rootContext().setContextProperty('profileStoreBackend', profileStoreBackend)
     engine.rootContext().setContextProperty('preferencesController', controller.preferencesController)
-    engine.rootContext().setContextProperty('profileStoreBackend', controller.profileStoreBackend)
-    engine.rootContext().setContextProperty('progressBridge', controller.progressBridge)
     engine.rootContext().setContextProperty('logBridge', controller.logBridge)
-    engine.rootContext().setContextProperty('scrcpyController', controller.scrcpyController)
     engine.rootContext().setContextProperty('helpController', controller.helpController)
     engine.rootContext().setContextProperty('maxHoverBridge', max_hover_bridge)
-    engine.addImageProvider('scrcpy', controller.scrcpyController.image_provider)
+    engine.rootContext().setContextProperty('tabBarBridge', tab_bar_bridge)
 
-    icon_path = Path(controller.service.root) / 'assets' / 'icon_round.ico'
+    root_path = Path(IaaService.app_root())
+    icon_path = root_path / 'assets' / 'icon_round.ico'
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
+    png_path = root_path / 'assets' / 'icon_round.png'
+    engine.rootContext().setContextProperty(
+        'appIconUrl', QUrl.fromLocalFile(str(png_path)) if png_path.exists() else None
+    )
 
     qml_path = Path(__file__).resolve().parent / 'qml' / 'MainWindow.qml'
     engine.load(QUrl.fromLocalFile(str(qml_path)))
@@ -109,11 +119,11 @@ def main() -> None:
     # 以折叠原生标题栏。引用挂在 app 上防止被垃圾回收。
     if sys.platform == 'win32':
         setup_frameless_window(hwnd)
-        _win_event_filter = WindowEventFilter(window, max_hover_bridge)
+        _win_event_filter = WindowEventFilter(window, max_hover_bridge, tab_bar_bridge)
         app.installNativeEventFilter(_win_event_filter)
 
     def apply_interface_preferences() -> None:
-        interface_conf = controller.service.config.shared.interface
+        interface_conf = config_manager.read_shared().interface
         apply_color_scheme(app, interface_conf.color_scheme)
         apply_theme_color(app, interface_conf.theme_color)
         if sys.platform == 'win32':

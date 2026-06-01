@@ -23,11 +23,54 @@ ApplicationWindow {
             : "Noto Sans CJK SC"
 
     readonly property var appCtrl: appController
-    readonly property var runCtrl: runController
-    readonly property var settingsCtrl: settingsController
-    readonly property var prefsCtrl: preferencesController
     readonly property var logBridgeObj: logBridge
+    readonly property var prefsCtrl: (typeof preferencesController !== 'undefined') ? preferencesController : null
     property bool allowImmediateClose: false
+    property bool prefsMode: false
+    property int _prevSideNavIndex: 0
+    property int _prevTitleBarIndex: 0
+
+    function enterPrefsMode() {
+        _prevTitleBarIndex = titleBar.currentIndex
+        _prevSideNavIndex = sideNav.currentIndex
+        titleBar.setCurrentIndex(1)  // PreferencesPage 在 index 1 的 RowLayout 内
+        prefsMode = true
+    }
+
+    function exitPrefsMode() {
+        prefsMode = false
+        titleBar.setCurrentIndex(_prevTitleBarIndex)
+        sideNav.currentIndex = _prevSideNavIndex
+    }
+
+    // Per-tab 实例模型
+    property var tabList: []
+    property int activeTabIndex: 0
+    property var activeSettingsCtrl: null   // 仅供 NavigationCoordinator / ConfigManagerDialog 使用
+
+    // 仅在 tabs 增删时更新 tabList（避免 Repeater 模型重建）
+    function _onTabsChanged() {
+        if (typeof tabManager === 'undefined' || !tabManager) return
+        tabList = JSON.parse(tabManager.tabsJson())
+        activeTabIndex = tabManager.activeTabIndex
+        activeSettingsCtrl = tabManager.activeSettingsController
+    }
+
+    // 切换 tab 时只更新 activeIndex，不碰 tabList（Repeater 模型保持不变）
+    function _onActiveTabChanged() {
+        if (typeof tabManager === 'undefined' || !tabManager) return
+        activeTabIndex = tabManager.activeTabIndex
+        activeSettingsCtrl = tabManager.activeSettingsController
+    }
+
+    function navigateTo(pageKey, tabIndex) {
+        if (pageKey === "tab") {
+            titleBar.setCurrentIndex(1)
+            if (tabIndex !== undefined) tabManager.setActiveTab(tabIndex)
+        } else if (pageKey === "overview") {
+            titleBar.setCurrentIndex(0)
+        }
+    }
 
     function requestTelemetryConsent() {
         App.Modal.message({
@@ -65,11 +108,12 @@ ApplicationWindow {
     }
 
     function requestAppClose() {
+        var anyRunning = (typeof tabManager !== 'undefined' && tabManager && tabManager.anyRunning)
         var closeRunner = function() {
             window.allowImmediateClose = true
             window.close()
         }
-        if (window.runCtrl && window.runCtrl.running) {
+        if (anyRunning) {
             App.Modal.message({
                 title: "确认退出",
                 content: "当前仍在执行任务，确定要退出吗？退出将先停止任务。",
@@ -91,7 +135,7 @@ ApplicationWindow {
 
     NavigationCoordinator {
         id: navigation
-        settingsCtrl: window.settingsCtrl
+        settingsCtrl: window.activeSettingsCtrl
         prefsCtrl: window.prefsCtrl
         unsavedChangesDialog: unsavedChangesDialog
     }
@@ -100,75 +144,102 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        // Full-width title bar: window controls on the right, rest is drag area.
-        // Only shown on Windows (frameless mode); native title bar handles other platforms.
-        // Will evolve into a tab bar when multi-config tabs are introduced.
         TitleBar {
+            id: titleBar
             Layout.fillWidth: true
-            visible: Qt.platform.os === "windows"
-            height: visible ? 32 : 0
+            configManagerDialog: configManagerDialog
+            prefsMode: window.prefsMode
+            onSettingsRequested: window.enterPrefsMode()
+            onBackRequested: window.exitPrefsMode()
             onMinimizeRequested: window.showMinimized()
             onCloseRequested: window.requestAppClose()
         }
 
-        RowLayout {
+        StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 0
+            currentIndex: titleBar.currentIndex
 
-            SideNavigationBar {
-                id: sideNav
-                Layout.fillHeight: true
-                // model: ["控制", "配置", "偏好", "帮助", "关于"]
-                model: ["控制", "配置", "偏好", "日志", "关于"]
-                currentConfig: App.ProfileStore.currentProfileName
+            // ── index 0：总览页 ─────────────────────────────────────
+            OverviewPage {}
 
-                onCurrentChanging: function(index, previousIndex) {
-                    navigation.requestGuardedAction("切换页面", function() {
-                        sideNav.confirmSwitch(index)
-                    })
+            // ── index 1：per-tab 内容区 ─────────────────────────────
+            RowLayout {
+                spacing: 0
+
+                SideNavigationBar {
+                    id: sideNav
+                    Layout.fillHeight: true
+                    visible: !window.prefsMode
+                    model: ["控制", "配置", "日志", "关于"]
+
+                    onCurrentChanging: function(index, previousIndex) {
+                        navigation.requestGuardedAction("切换页面", function() {
+                            sideNav.confirmSwitch(index)
+                        })
+                    }
                 }
 
-                onProfileSwitchRequested: function(name) {
-                    navigation.requestGuardedAction("切换配置", function() {
-                        window.settingsCtrl.switchProfile(name)
-                    })
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    StackLayout {
+                        id: stack
+                        anchors.fill: parent
+                        visible: !window.prefsMode
+                        currentIndex: sideNav.currentIndex
+
+                        // ── 控制页（per-tab 独立实例）──────────────────────────
+                        StackLayout {
+                            currentIndex: window.activeTabIndex
+                            Repeater {
+                                model: window.tabList
+                                delegate: ControlPage {
+                                    required property int index
+                                    autoLiveDialog: autoLiveDialogView
+                                    runCtrl: tabManager.runControllerAt(index)
+                                    progBridge: tabManager.progressBridgeAt(index)
+                                }
+                            }
+                        }
+
+                        // ── 配置页（per-tab 独立实例）──────────────────────────
+                        StackLayout {
+                            currentIndex: window.activeTabIndex
+                            Repeater {
+                                model: window.tabList
+                                delegate: SettingsPage {
+                                    required property int index
+                                    formController: tabManager.settingsControllerAt(index)
+                                    runCtrl: tabManager.runControllerAt(index)
+                                }
+                            }
+                        }
+
+                        // ── 日志页（per-tab 独立实例）──────────────────────────
+                        StackLayout {
+                            currentIndex: window.activeTabIndex
+                            Repeater {
+                                model: window.tabList
+                                delegate: LogPage {
+                                    required property int index
+                                    logBridge: tabManager.logBridgeAt(index)
+                                }
+                            }
+                        }
+
+                        AboutPage {}
+                    }
+
+                    // ── 偏好设置（全局单例，模式驱动，覆盖整个内容区）──────────────────────────
+                    PreferencesPage {
+                        id: preferencesPage
+                        anchors.fill: parent
+                        visible: window.prefsMode
+                        prefsController: window.prefsCtrl
+                    }
                 }
-
-                onOpenConfigManager: {
-                    configManagerDialog.open()
-                }
-            }
-
-            StackLayout {
-                id: stack
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                currentIndex: sideNav.currentIndex
-
-                ControlPage {
-                    id: controlPage
-                    autoLiveDialog: autoLiveDialogView
-                }
-
-                SettingsPage {
-                    id: settingsPage
-                    formController: window.settingsCtrl
-                }
-
-                PreferencesPage {
-                    id: preferencesPage
-                    prefsController: window.prefsCtrl
-                }
-
-                LogPage {
-                    id: logPage
-                    logBridge: window.logBridgeObj
-                }
-
-                // HelpPage {}
-
-                AboutPage {}
             }
         }
     }
@@ -180,7 +251,8 @@ ApplicationWindow {
     ConfigManagerDialog {
         id: configManagerDialog
         navigation: navigation
-        settingsCtrl: window.settingsCtrl
+        settingsCtrl: window.activeSettingsCtrl
+        tabManager: tabManager
     }
 
     ModalHost {
@@ -252,14 +324,37 @@ ApplicationWindow {
         }
     }
 
-    Connections {
-        target: window.runCtrl
-        function onScriptAutoWarningRequested(text) {
-            App.Notice.show("error", text)
-        }
+    function requestConfigReset(configName, invalidFieldsJson, errorDetails) {
+        var fields = JSON.parse(invalidFieldsJson)
+        var fieldList = fields.map(function(f) { return "&nbsp;&nbsp;• " + f }).join("<br>")
+        App.Modal.message({
+            title: "配置校验失败",
+            content: "配置 <b>" + configName + "</b> 中以下字段校验失败：<br>"
+                + fieldList
+                + "<br><br>错误详情：<br>" + errorDetails
+                + "<br><br>是否将这些字段重置为默认值？",
+            buttons: [
+                { text: "不重置", value: "cancel" },
+                { text: "重置", value: "reset", highlighted: true }
+            ],
+            width: 480
+        }, function(result) {
+            if (result === "reset" && typeof tabManager !== 'undefined' && tabManager) {
+                tabManager.resetAndOpenTab(configName, invalidFieldsJson)
+            }
+        })
     }
 
     Component.onCompleted: {
+        _onTabsChanged()
+        if (typeof tabManager !== 'undefined' && tabManager) {
+            tabManager.tabsChanged.connect(window._onTabsChanged)
+            tabManager.activeTabChanged.connect(window._onActiveTabChanged)
+            tabManager.scriptAutoWarningRequested.connect(function(text) {
+                App.Notice.show("error", text)
+            })
+            tabManager.configValidationFailed.connect(window.requestConfigReset)
+        }
         if (window.appCtrl && window.appCtrl.telemetryConsentRequired) {
             window.requestTelemetryConsent()
         }
@@ -283,7 +378,8 @@ ApplicationWindow {
             return
         }
         close.accepted = false
-        if (window.runCtrl && window.runCtrl.running) {
+        var anyRunning = (typeof tabManager !== 'undefined' && tabManager && tabManager.anyRunning)
+        if (anyRunning) {
             window.requestAppClose()
             return
         }

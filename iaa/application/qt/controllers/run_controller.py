@@ -36,7 +36,8 @@ class RunController(QObject):
 
     def _refresh_state(self) -> None:
         self.stateChanged.emit()
-        self._scrcpy.sync_visibility()
+        if self._scrcpy is not None:
+            self._scrcpy.sync_visibility()
 
     def _get_running(self) -> bool:
         return bool(self._iaa.scheduler.running)

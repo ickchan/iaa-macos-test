@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".." as App
-import "../../../framework/dsl/qml/controls"
 
 // import Iaa.Controllers 1.0
 
@@ -14,30 +13,10 @@ Rectangle {
     property var model: []
     property int currentIndex: 0
     property int previousIndex: 0
-    property var configNames: []
-    property string currentConfig: "default"
     signal currentChanging(int index, int previousIndex)
-    signal profileSwitchRequested(string name)
-    signal openConfigManager()
 
     function confirmSwitch(index) {
         root.currentIndex = index
-    }
-
-    function reloadConfigs() {
-        configNames = JSON.parse(App.ProfileStore.profilesJson).profiles || [];
-    }
-
-    Component.onCompleted: {
-        reloadConfigs();
-    }
-
-    Connections {
-        target: App.ProfileStore
-
-        function onProfilesChanged() {
-            root.reloadConfigs()
-        }
     }
 
     ColumnLayout {
@@ -103,40 +82,6 @@ Rectangle {
                     }
                 }
 
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Select {
-                Layout.fillWidth: true
-                model: root.configNames
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: {
-                    for (var i = 0; i < model.length; i++) {
-                        if (model[i].value === root.currentConfig) return i;
-                    }
-                    return 0;
-                }
-                enabled: !runController.running && !runController.isStarting && !runController.isStopping
-                onActivated: {
-                    var selected = currentValue;
-                    if (selected && selected !== root.currentConfig) {
-                        root.profileSwitchRequested(selected);
-                    }
-                }
-            }
-
-            Button {
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 32
-                text: "⚙"
-                font.pixelSize: 16
-                enabled: !runController.running && !runController.isStarting && !runController.isStopping
-                onClicked: root.openConfigManager()
             }
         }
 
