@@ -16,7 +16,7 @@ PageContainer {
     readonly property bool ctrl_isStopping: runCtrl ? runCtrl.isStopping : false
     readonly property bool ctrl_exportBusy: runCtrl ? runCtrl.exportBusy : false
     readonly property string ctrl_taskName: runCtrl ? runCtrl.currentTaskName : ""
-    readonly property bool ctrl_busy: ctrl_running || ctrl_isStarting || ctrl_isStopping
+    readonly property bool ctrl_busy: ctrl_isStarting || ctrl_isStopping
 
     function reloadTasks() {
         tasks = root.runCtrl ? JSON.parse(root.runCtrl.tasksStateJson()) : []
