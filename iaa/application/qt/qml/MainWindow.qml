@@ -27,20 +27,17 @@ ApplicationWindow {
     readonly property var prefsCtrl: (typeof preferencesController !== 'undefined') ? preferencesController : null
     property bool allowImmediateClose: false
     property bool prefsMode: false
-    property int _prevSideNavIndex: 0
     property int _prevTitleBarIndex: 0
 
     function enterPrefsMode() {
         _prevTitleBarIndex = titleBar.currentIndex
-        _prevSideNavIndex = sideNav.currentIndex
-        titleBar.setCurrentIndex(1)  // PreferencesPage 在 index 1 的 RowLayout 内
+        titleBar.setCurrentIndex(1)
         prefsMode = true
     }
 
     function exitPrefsMode() {
         prefsMode = false
         titleBar.setCurrentIndex(_prevTitleBarIndex)
-        sideNav.currentIndex = _prevSideNavIndex
     }
 
     // Per-tab 实例模型
@@ -164,88 +161,38 @@ ApplicationWindow {
             OverviewPage {}
 
             // ── index 1：per-tab 内容区 ─────────────────────────────
-            RowLayout {
-                spacing: 0
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
-                SideNavigationBar {
-                    id: sideNav
-                    Layout.fillHeight: true
-                    visible: !window.prefsMode
-                    model: ["控制", "配置", "日志", "关于"]
+                StackLayout {
+                    anchors.fill: parent
+                    currentIndex: window.activeTabIndex
 
-                    onCurrentChanging: function(index, previousIndex) {
-                        navigation.requestGuardedAction("切换页面", function() {
-                            sideNav.confirmSwitch(index)
-                        })
+                    Repeater {
+                        id: tabContentRepeater
+                        model: window.tabList
+                        delegate: TabContent {
+                            required property int index
+                            runCtrl: tabManager.runControllerAt(index)
+                            progBridge: tabManager.progressBridgeAt(index)
+                            logBridge: tabManager.logBridgeAt(index)
+                            formController: tabManager.settingsControllerAt(index)
+                            navigation: navigation
+                            prefsMode: window.prefsMode
+                        }
                     }
                 }
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    StackLayout {
-                        id: stack
-                        anchors.fill: parent
-                        visible: !window.prefsMode
-                        currentIndex: sideNav.currentIndex
-
-                        // ── 控制页（per-tab 独立实例）──────────────────────────
-                        StackLayout {
-                            currentIndex: window.activeTabIndex
-                            Repeater {
-                                model: window.tabList
-                                delegate: ControlPage {
-                                    required property int index
-                                    autoLiveDialog: autoLiveDialogView
-                                    runCtrl: tabManager.runControllerAt(index)
-                                    progBridge: tabManager.progressBridgeAt(index)
-                                }
-                            }
-                        }
-
-                        // ── 配置页（per-tab 独立实例）──────────────────────────
-                        StackLayout {
-                            currentIndex: window.activeTabIndex
-                            Repeater {
-                                model: window.tabList
-                                delegate: SettingsPage {
-                                    required property int index
-                                    formController: tabManager.settingsControllerAt(index)
-                                    runCtrl: tabManager.runControllerAt(index)
-                                }
-                            }
-                        }
-
-                        // ── 日志页（per-tab 独立实例）──────────────────────────
-                        StackLayout {
-                            currentIndex: window.activeTabIndex
-                            Repeater {
-                                model: window.tabList
-                                delegate: LogPage {
-                                    required property int index
-                                    logBridge: tabManager.logBridgeAt(index)
-                                }
-                            }
-                        }
-
-                        AboutPage {}
-                    }
-
-                    // ── 偏好设置（全局单例，模式驱动，覆盖整个内容区）──────────────────────────
-                    PreferencesPage {
-                        id: preferencesPage
-                        anchors.fill: parent
-                        visible: window.prefsMode
-                        prefsController: window.prefsCtrl
-                    }
+                // ── 偏好设置（全局单例，模式驱动，覆盖整个内容区）──────────────────────────
+                PreferencesPage {
+                    id: preferencesPage
+                    anchors.fill: parent
+                    visible: window.prefsMode
+                    prefsController: window.prefsCtrl
                 }
             }
         }
-    }
-
-    AutoLiveDialog {
-        id: autoLiveDialogView
     }
 
     ConfigManagerDialog {
