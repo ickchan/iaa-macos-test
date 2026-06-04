@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Window
 
 // Windows 窗口控件（最小化 / 最大化 / 关闭）。
-// hit-test 布局（从右到左，各 46px）：
+// hit-test 布局（从右到左，名 46px）：
 //   close    → HTCLIENT（QML 处理点击 + hover）
 //   maximize → HTMAXBUTTON（OS 处理贴靠布局弹窗；hover 由 maxHoverBridge 中转）
 //   minimize → HTCLIENT（QML 处理点击 + hover）
@@ -19,7 +19,7 @@ Row {
     visible: Qt.platform.os === "windows"
     spacing: 0
 
-    readonly property string _iconFont: "Segoe Fluent Icons"
+    readonly property string _iconFont: "FluentSystemIcons-Regular"
     property bool _maxHoveredByOS: false
 
     Connections {
@@ -28,7 +28,7 @@ Row {
         function onHoveredChanged(hovered) { root._maxHoveredByOS = hovered }
     }
 
-    // ── Minimize（E921 = ChromeMinimize）─────────────────────────────
+    // ── Minimize（FluentSystemIcons subtract_20 = \uEBD0）──────────────────
     Rectangle {
         width: 46; height: root.height
         color: _minHover.containsMouse
@@ -37,8 +37,8 @@ Row {
         Text {
             anchors.centerIn: parent
             font.family: root._iconFont
-            font.pixelSize: 10
-            text: ""
+            font.pixelSize: 16
+            text: "\uEBD0"
             color: palette.windowText
         }
         MouseArea {
@@ -49,7 +49,7 @@ Row {
         }
     }
 
-    // ── Maximize / Restore（E922 / E923）──────────────────────────────
+    // ── Maximize / Restore（maximize_20 = \uE7EB / square_multiple_20 = ）──
     Rectangle {
         width: 46; height: root.height
         readonly property bool _hovered: Qt.platform.os === "windows"
@@ -61,8 +61,8 @@ Row {
         Text {
             anchors.centerIn: parent
             font.family: root._iconFont
-            font.pixelSize: 10
-            text: root.window.visibility === Window.Maximized ? "" : ""
+            font.pixelSize: 16
+            text: root.window.visibility === Window.Maximized ? "\uEB96" : "\uE7EB"
             color: palette.windowText
         }
         MouseArea {
@@ -77,15 +77,15 @@ Row {
         }
     }
 
-    // ── Close（E8BB = ChromeClose）────────────────────────────────────
+    // ── Close（FluentSystemIcons dismiss_20 = \uF369）─────────────────
     Rectangle {
         width: 46; height: root.height
         color: _closeHover.containsMouse ? "#c42b1c" : "transparent"
         Text {
             anchors.centerIn: parent
             font.family: root._iconFont
-            font.pixelSize: 10
-            text: ""
+            font.pixelSize: 16
+            text: "\uF369"
             color: _closeHover.containsMouse ? "white" : palette.windowText
         }
         MouseArea {

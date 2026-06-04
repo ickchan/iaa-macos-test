@@ -110,7 +110,7 @@ Item {
                 anchors.fill: parent
                 visible: root.prefsMode
                 title: "一歌小助手"
-                iconSource: (typeof appIconUrl !== 'undefined' && appIconUrl) ? appIconUrl : ""
+                iconSource: App.Globals.assetPath("icon_round.png")
                 onBackRequested: root.backRequested()
             }
         }

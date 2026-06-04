@@ -19,7 +19,7 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // ── 返回按钮（Segoe Fluent Icons E72B = Back）──────────────────
+        // ── 返回按钮（FluentSystemIcons chevron_left_20 = ）───────
         Item {
             id: backBtn
             Layout.preferredWidth: 40
@@ -38,9 +38,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                font.family: "Segoe Fluent Icons"
+                font.family: "FluentSystemIcons-Regular"
                 font.pixelSize: 13
-                text: "\uE72B"   // Back
+                text: "\uF2AA"   // Back
                 color: palette.windowText
             }
 

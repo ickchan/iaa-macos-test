@@ -110,10 +110,6 @@ def main() -> None:
     icon_path = root_path / 'assets' / 'icon_round.ico'
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
-    png_path = root_path / 'assets' / 'icon_round.png'
-    engine.rootContext().setContextProperty(
-        'appIconUrl', QUrl.fromLocalFile(str(png_path)) if png_path.exists() else None
-    )
 
     qml_path = Path(__file__).resolve().parent / 'qml' / 'MainWindow.qml'
     engine.load(QUrl.fromLocalFile(str(qml_path)))

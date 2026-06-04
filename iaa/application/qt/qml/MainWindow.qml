@@ -22,6 +22,11 @@ ApplicationWindow {
             ? "PingFang SC"
             : "Noto Sans CJK SC"
 
+    // 加载 FluentSystemIcons-Regular（MIT），注册后全局可用 font.family: "FluentSystemIcons-Regular"
+    FontLoader {
+        source: Globals.assetPath("fonts/FluentSystemIcons-Regular.ttf")
+    }
+
     readonly property var appCtrl: AppController
     readonly property var prefsCtrl: PreferencesController
     property bool allowImmediateClose: false

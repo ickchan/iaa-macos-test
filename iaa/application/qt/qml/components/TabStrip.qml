@@ -37,7 +37,7 @@ Item {
             Image {
                 anchors.centerIn: parent
                 width: 16; height: 16
-                source: (typeof appIconUrl !== 'undefined' && appIconUrl) ? appIconUrl : ""
+                source: App.Globals.assetPath("icon_round.png")
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 visible: status === Image.Ready
@@ -174,7 +174,7 @@ Item {
                             opacity: tabDelegate._isActive ? 1.0 : 0.75
                         }
 
-                        // × 关闭按钮（Segoe Fluent Icons E8BB = ChromeClose）
+                        // × 关闭按钮（FluentSystemIcons dismiss_20 = ）
                         Rectangle {
                             Layout.preferredWidth: 20
                             Layout.preferredHeight: 20
@@ -186,9 +186,9 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                font.family: "Segoe Fluent Icons"
+                                font.family: "FluentSystemIcons-Regular"
                                 font.pixelSize: 9
-                                text: "\uE8BB"   // ChromeClose
+                                text: "\uF369"   // ChromeClose
                                 color: palette.windowText
                                 opacity: tabDelegate._isActive ? 0.9 : 0.6
                             }
@@ -207,7 +207,7 @@ Item {
             }
         }
 
-        // ── + 新建 Tab（Segoe Fluent Icons E710 = Add）────────────────
+        // ── + 新建 Tab（FluentSystemIcons add_20 = ）──────────────
         Item {
             width: 32
             height: parent.height
@@ -226,9 +226,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                font.family: "Segoe Fluent Icons"
+                font.family: "FluentSystemIcons-Regular"
                 font.pixelSize: 13
-                text: "\uE710"   // Add
+                text: "\uF109"   // Add
                 color: palette.windowText
                 opacity: 0.7
             }
@@ -277,7 +277,7 @@ Item {
             }
         }
 
-        // ── ☰ 配置管理（Segoe Fluent Icons E700 = GlobalNavButton）──
+        // ── ☰ 配置管理（FluentSystemIcons navigation_20 = ）────
         Item {
             width: 32
             height: parent.height
@@ -296,9 +296,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                font.family: "Segoe Fluent Icons"
+                font.family: "FluentSystemIcons-Regular"
                 font.pixelSize: 14
-                text: "\uE700"   // GlobalNavButton
+                text: "\uF560"   // GlobalNavButton
                 color: palette.windowText
                 opacity: 0.7
             }
@@ -310,7 +310,7 @@ Item {
             }
         }
 
-        // ── ⚙ 偏好（Segoe Fluent Icons E713 = Settings）──────────────
+        // ── ⚙ 偏好（FluentSystemIcons settings_20 = ）────────────
         Item {
             width: 32
             height: parent.height
@@ -329,9 +329,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                font.family: "Segoe Fluent Icons"
+                font.family: "FluentSystemIcons-Regular"
                 font.pixelSize: 14
-                text: "\uE713"   // Settings
+                text: "\uF6A9"   // Settings
                 color: palette.windowText
                 opacity: 0.7
             }
