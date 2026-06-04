@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import ".." as App
+import IaaApp 1.0
 
 // 主窗口标题区外壳。
 //
@@ -19,7 +20,6 @@ Item {
     readonly property int _tabH: 34    // tab 行高度
     height: _stripH + _tabH
 
-    // tabManager 从 QML 上下文全局属性获取，无需作为属性传入
     required property var configManagerDialog
 
     // 当前顶层页签（0 = 总览，1 = config tab），由 TabStrip 驱动
@@ -43,8 +43,7 @@ Item {
     // ── Tab 列表数据 ────────────────────────────────────────────────────
     property var _tabs: []
     function _reloadTabs() {
-        if (typeof tabManager !== 'undefined' && tabManager)
-            root._tabs = JSON.parse(tabManager.tabsJson())
+        root._tabs = JSON.parse(TabManager.tabsJson())
     }
     Component.onCompleted: _reloadTabs()
 
@@ -56,19 +55,19 @@ Item {
         value: root.prefsMode ? pageHeader.interactiveEnd : tabStrip.interactiveEnd
     }
 
-    // ── tabManager 事件 ────────────────────────────────────────────────
+    // ── TabManager 事件 ────────────────────────────────────────────────
     Connections {
-        target: (typeof tabManager !== 'undefined') ? tabManager : null
+        target: TabManager
         function onTabsChanged()      { root._reloadTabs() }
         function onActiveTabChanged() { root._reloadTabs() }
         function onCloseTabBlocked(reason) { App.Notice.show("error", reason) }
         function onReadyToCloseTab(index) {
             root.pendingCloseIndex = index
-            var sc = tabManager.settingsControllerAt(index)
+            var sc = TabManager.settingsControllerAt(index)
             if (sc && sc.isDirty()) {
                 tabCloseUnsavedDialog.open()
             } else {
-                tabManager.closeTab(index)
+                TabManager.closeTab(index)
                 root.pendingCloseIndex = -1
             }
         }
@@ -160,9 +159,9 @@ Item {
                         tabCloseUnsavedDialog.close()
                         root.pendingCloseIndex = -1
                         if (idx >= 0) {
-                            var sc = tabManager.settingsControllerAt(idx)
+                            var sc = TabManager.settingsControllerAt(idx)
                             if (sc) sc.discard()
-                            tabManager.closeTab(idx)
+                            TabManager.closeTab(idx)
                         }
                     }
                 }
@@ -174,9 +173,9 @@ Item {
                         tabCloseUnsavedDialog.close()
                         root.pendingCloseIndex = -1
                         if (idx >= 0) {
-                            var sc = tabManager.settingsControllerAt(idx)
+                            var sc = TabManager.settingsControllerAt(idx)
                             if (sc) sc.save()
-                            tabManager.closeTab(idx)
+                            TabManager.closeTab(idx)
                         }
                     }
                 }

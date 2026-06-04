@@ -2,8 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".." as App
-
-// import Iaa.Controllers 1.0
+import IaaApp 1.0
 
 Rectangle {
     id: root
@@ -75,7 +74,7 @@ Rectangle {
 
                     Label {
                         Layout.fillWidth: true
-                        text: "版本 v" + appController.version
+                        text: "版本 v" + AppController.version
                         font.pixelSize: 12
                         color: palette.placeholderText
                         verticalAlignment: Text.AlignVCenter

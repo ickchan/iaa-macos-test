@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../components"
+import IaaApp 1.0
 
 PageContainer {
     id: root
@@ -11,14 +12,13 @@ PageContainer {
     property var _tabs: []
 
     function _reload() {
-        if (typeof tabManager !== 'undefined' && tabManager)
-            _tabs = JSON.parse(tabManager.tabsJson())
+        _tabs = JSON.parse(TabManager.tabsJson())
     }
 
     Component.onCompleted: _reload()
 
     Connections {
-        target: typeof tabManager !== 'undefined' ? tabManager : null
+        target: TabManager
         function onTabsChanged() { root._reload() }
         function onActiveTabChanged() { root._reload() }
     }
@@ -43,8 +43,8 @@ PageContainer {
                 delegate: Rectangle {
                     id: card
 
-                    readonly property var runCtrl: tabManager.runControllerAt(modelData.index)
-                    readonly property var progBridge: tabManager.progressBridgeAt(modelData.index)
+                    readonly property var runCtrl: TabManager.runControllerAt(modelData.index)
+                    readonly property var progBridge: TabManager.progressBridgeAt(modelData.index)
 
                     width: 260
                     height: contentCol.implicitHeight + 32

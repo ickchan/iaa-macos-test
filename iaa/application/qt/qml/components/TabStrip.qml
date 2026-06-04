@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".." as App
+import IaaApp 1.0
 
 // 主窗口 tab 栏：应用图标、总览 tab、config tab 列表、+ 新建、☰ 配置管理、⚙ 偏好。
 // currentIndex: 0 = 总览，1 = config tab（由内部点击驱动，TitleBar 读取）
@@ -125,7 +126,7 @@ Item {
                             if (modelData) {
                                 root.currentIndex = 1
                                 if (!modelData.isActive)
-                                    tabManager.setActiveTab(modelData.index)
+                                    TabManager.setActiveTab(modelData.index)
                             }
                         }
                         onPressed: event => event.accepted = true
@@ -197,7 +198,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 onClicked: {
-                                    if (modelData) tabManager.requestCloseTab(modelData.index)
+                                    if (modelData) TabManager.requestCloseTab(modelData.index)
                                 }
                             }
                         }
@@ -247,7 +248,7 @@ Item {
 
                 property var available: []
                 onAboutToShow: {
-                    available = JSON.parse(tabManager.availableConfigsJson())
+                    available = JSON.parse(TabManager.availableConfigsJson())
                 }
 
                 contentItem: Column {
@@ -260,7 +261,7 @@ Item {
                             width: parent.width
                             text: modelData
                             onClicked: {
-                                tabManager.openTab(modelData)
+                                TabManager.openTab(modelData)
                                 addTabPopup.close()
                             }
                         }

@@ -4,8 +4,8 @@ import QtQuick.Layouts
 import "." as App
 import "pages"
 import "dialogs"
-
 import "components"
+import IaaApp 1.0
 
 ApplicationWindow {
     id: window
@@ -22,9 +22,8 @@ ApplicationWindow {
             ? "PingFang SC"
             : "Noto Sans CJK SC"
 
-    readonly property var appCtrl: appController
-    readonly property var logBridgeObj: logBridge
-    readonly property var prefsCtrl: (typeof preferencesController !== 'undefined') ? preferencesController : null
+    readonly property var appCtrl: AppController
+    readonly property var prefsCtrl: PreferencesController
     property bool allowImmediateClose: false
     property bool prefsMode: false
     property int _prevTitleBarIndex: 0
@@ -47,23 +46,21 @@ ApplicationWindow {
 
     // 仅在 tabs 增删时更新 tabList（避免 Repeater 模型重建）
     function _onTabsChanged() {
-        if (typeof tabManager === 'undefined' || !tabManager) return
-        tabList = JSON.parse(tabManager.tabsJson())
-        activeTabIndex = tabManager.activeTabIndex
-        activeSettingsCtrl = tabManager.activeSettingsController
+        tabList = JSON.parse(TabManager.tabsJson())
+        activeTabIndex = TabManager.activeTabIndex
+        activeSettingsCtrl = TabManager.activeSettingsController
     }
 
     // 切换 tab 时只更新 activeIndex，不碰 tabList（Repeater 模型保持不变）
     function _onActiveTabChanged() {
-        if (typeof tabManager === 'undefined' || !tabManager) return
-        activeTabIndex = tabManager.activeTabIndex
-        activeSettingsCtrl = tabManager.activeSettingsController
+        activeTabIndex = TabManager.activeTabIndex
+        activeSettingsCtrl = TabManager.activeSettingsController
     }
 
     function navigateTo(pageKey, tabIndex) {
         if (pageKey === "tab") {
             titleBar.setCurrentIndex(1)
-            if (tabIndex !== undefined) tabManager.setActiveTab(tabIndex)
+            if (tabIndex !== undefined) TabManager.setActiveTab(tabIndex)
         } else if (pageKey === "overview") {
             titleBar.setCurrentIndex(0)
         }
@@ -105,7 +102,7 @@ ApplicationWindow {
     }
 
     function requestAppClose() {
-        var anyRunning = (typeof tabManager !== 'undefined' && tabManager && tabManager.anyRunning)
+        var anyRunning = TabManager.anyRunning
         var closeRunner = function() {
             window.allowImmediateClose = true
             window.close()
@@ -174,10 +171,10 @@ ApplicationWindow {
                         model: window.tabList
                         delegate: TabContent {
                             required property int index
-                            runCtrl: tabManager.runControllerAt(index)
-                            progBridge: tabManager.progressBridgeAt(index)
-                            logBridge: tabManager.logBridgeAt(index)
-                            formController: tabManager.settingsControllerAt(index)
+                            runCtrl: TabManager.runControllerAt(index)
+                            progBridge: TabManager.progressBridgeAt(index)
+                            logBridge: TabManager.logBridgeAt(index)
+                            formController: TabManager.settingsControllerAt(index)
                             navigation: navigation
                             prefsMode: window.prefsMode
                         }
@@ -199,7 +196,7 @@ ApplicationWindow {
         id: configManagerDialog
         navigation: navigation
         settingsCtrl: window.activeSettingsCtrl
-        tabManager: tabManager
+        tabManager: TabManager
     }
 
     ModalHost {
@@ -286,22 +283,20 @@ ApplicationWindow {
             ],
             width: 480
         }, function(result) {
-            if (result === "reset" && typeof tabManager !== 'undefined' && tabManager) {
-                tabManager.resetAndOpenTab(configName, invalidFieldsJson)
+            if (result === "reset") {
+                TabManager.resetAndOpenTab(configName, invalidFieldsJson)
             }
         })
     }
 
     Component.onCompleted: {
         _onTabsChanged()
-        if (typeof tabManager !== 'undefined' && tabManager) {
-            tabManager.tabsChanged.connect(window._onTabsChanged)
-            tabManager.activeTabChanged.connect(window._onActiveTabChanged)
-            tabManager.scriptAutoWarningRequested.connect(function(text) {
-                App.Notice.show("error", text)
-            })
-            tabManager.configValidationFailed.connect(window.requestConfigReset)
-        }
+        TabManager.tabsChanged.connect(window._onTabsChanged)
+        TabManager.activeTabChanged.connect(window._onActiveTabChanged)
+        TabManager.scriptAutoWarningRequested.connect(function(text) {
+            App.Notice.show("error", text)
+        })
+        TabManager.configValidationFailed.connect(window.requestConfigReset)
         if (window.appCtrl && window.appCtrl.telemetryConsentRequired) {
             window.requestTelemetryConsent()
         }
@@ -325,7 +320,7 @@ ApplicationWindow {
             return
         }
         close.accepted = false
-        var anyRunning = (typeof tabManager !== 'undefined' && tabManager && tabManager.anyRunning)
+        var anyRunning = TabManager.anyRunning
         if (anyRunning) {
             window.requestAppClose()
             return

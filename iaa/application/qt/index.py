@@ -10,15 +10,20 @@ from typing import cast
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QColor, QIcon, QPalette
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtWidgets import QApplication
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from iaa.config import manager as config_manager
 from iaa.application.service.iaa_service import IaaService
-from .controllers import AppController
-from .controllers.profile_store_backend import ProfileStoreBackend
+from .controllers import (
+    AppController,
+    HelpController,
+    PreferencesController,
+    ProfileStoreBackend,
+)
+from .controllers.tab_manager import TabManager
 
 if sys.platform == 'win32':
     from .platform_win32 import (
@@ -88,13 +93,16 @@ def main() -> None:
     max_hover_bridge = _MaxHoverBridge() if sys.platform == 'win32' else None
     tab_bar_bridge = TabBarHitTestBridge() if sys.platform == 'win32' else None
 
+    # PySide6 stub 把 qml_name 标注为 bytes，但运行时实际接受 str，故忽略类型错误
+    _URI, _VER = "IaaApp", (1, 0)
+    qmlRegisterSingletonType(AppController,        _URI, *_VER, "AppController",        lambda _: controller)           # type: ignore[arg-type]
+    qmlRegisterSingletonType(TabManager,           _URI, *_VER, "TabManager",           lambda _: controller.tabManager)  # type: ignore[arg-type]
+    qmlRegisterSingletonType(ProfileStoreBackend,  _URI, *_VER, "ProfileStoreBackend",  lambda _: profileStoreBackend)    # type: ignore[arg-type]
+    qmlRegisterSingletonType(PreferencesController,_URI, *_VER, "PreferencesController",lambda _: controller.preferencesController)  # type: ignore[arg-type]
+    qmlRegisterSingletonType(HelpController,       _URI, *_VER, "HelpController",       lambda _: controller.helpController)  # type: ignore[arg-type]
+
     engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty('appController', controller)
-    engine.rootContext().setContextProperty('tabManager', controller.tabManager)
-    engine.rootContext().setContextProperty('profileStoreBackend', profileStoreBackend)
-    engine.rootContext().setContextProperty('preferencesController', controller.preferencesController)
-    engine.rootContext().setContextProperty('logBridge', controller.logBridge)
-    engine.rootContext().setContextProperty('helpController', controller.helpController)
+    # maxHoverBridge / tabBarBridge 平台条件可为 None，保留 context property
     engine.rootContext().setContextProperty('maxHoverBridge', max_hover_bridge)
     engine.rootContext().setContextProperty('tabBarBridge', tab_bar_bridge)
 
