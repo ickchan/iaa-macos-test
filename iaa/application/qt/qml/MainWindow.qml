@@ -298,6 +298,11 @@ ApplicationWindow {
         _onTabsChanged()
         TabManager.tabsChanged.connect(window._onTabsChanged)
         TabManager.activeTabChanged.connect(window._onActiveTabChanged)
+
+        // 根据 startup_page 设置决定初始页面
+        if (window.appCtrl && window.appCtrl.startupPage === "last_opened") {
+            titleBar.setCurrentIndex(1)
+        }
         TabManager.scriptAutoWarningRequested.connect(function(text) {
             App.Notice.show("error", text)
         })

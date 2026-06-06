@@ -83,12 +83,16 @@ class AppController(QObject):
             return 'mica'
         return 'solid'
 
+    def _get_startup_page(self) -> str:
+        return config_manager.read_shared().interface.startup_page
+
     version = Property(str, _get_version, constant=True)
     windowTitle = Property(str, _get_window_title, constant=True)
     assetsRootPath = Property(str, _get_assets_root_path, constant=True)
     globalError = Property(str, _get_global_error, notify=globalErrorChanged)
     telemetryConsentRequired = Property(bool, _get_telemetry_consent_required, notify=telemetryConsentRequiredChanged)
     windowStyle = Property(str, _get_window_style, notify=windowStyleChanged)
+    startupPage = Property(str, _get_startup_page, constant=True)
 
     @Slot(str)
     def openExternalUrl(self, url: str) -> None:

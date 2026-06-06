@@ -16,6 +16,7 @@ class InterfaceConfig(BaseModel):
     window_style: str = ''
     theme_color: str | None = None
     color_scheme: Literal['auto', 'light', 'dark'] = 'auto'
+    startup_page: Literal['overview', 'last_opened'] = 'last_opened'
 
 
 class CustomPushData(BaseModel):
