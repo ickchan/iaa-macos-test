@@ -5,6 +5,7 @@
 * 现在 iaa 的窗口是无边框窗口了
 * 多配置能力增强。现在以多 Tab 的形式展示多配置，而且支持同时启动多个配置
 * 新增对于 AVD（Android Virtual Device）的特别支持，现在可以自动识别 AVD 路径与控制启动
+* 新增 AVD 专用控制方式「QEMU gRPC」，性能与 MuMu 的 NemuIPC 相当
 * 国服现已支持「活动商店」任务
 
 修复：

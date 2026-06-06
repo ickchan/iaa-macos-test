@@ -472,6 +472,8 @@ class SchedulerService:
                 return host.create_device('scrcpy', _build_scrcpy_config(AdbHostConfig().timeout, use_vd))
             elif impl == 'uiautomator':
                 return host.create_device('uiautomator2', AdbHostConfig())
+            elif impl == 'qemu_grpc':
+                raise ValueError("'qemu_grpc' 仅支持 AVD 设备，不支持当前设备类型。")
             else:
                 raise ValueError(f"Unknown control implementation: {impl}")
 
@@ -583,9 +585,24 @@ class SchedulerService:
                     raise RuntimeError('未找到任何 AVD，请先通过 Android Studio 创建 AVD。')
                 avd_instance = instances[0]
             avd_instance._extra_args = lifecycle.extra_args.split() if lifecycle.extra_args.strip() else []
+
+            # qemu_grpc 直接读取硬件帧缓冲，wm size 无法改变实际分辨率。
+            if impl == 'qemu_grpc' and device_conf.resolution_method != 'keep':
+                raise ValueError(
+                    'QEMU gRPC 模式不支持自动修改分辨率，请在「分辨率设置」中选择「保持原始分辨率」，'
+                    '并在 AVD Manager 中预先将 LCD 分辨率配置为 1280x720。'
+                )
+
+            # qemu_grpc 需要 AVD 以 -grpc <port> 启动；若用户未在 extra_args 中指定则注入默认端口。
+            if impl == 'qemu_grpc' and '-grpc' not in avd_instance._extra_args:
+                avd_instance._extra_args += ['-grpc', '8554']
+
             _maybe_start(avd_instance)
             if impl == 'nemu_ipc':
                 raise ValueError("'nemu_ipc' 仅支持 MuMu，不支持 AVD。")
+            if impl == 'qemu_grpc':
+                from iaa.application.service.qemu_grpc import create_qemu_grpc_device
+                return create_qemu_grpc_device(avd_instance)
             return _apply_impl(avd_instance)
 
         elif isinstance(lifecycle, PlayCoverDevice):
@@ -685,7 +702,8 @@ class SchedulerService:
         # 设置分辨率（PlayCover 不走 ADB，直接跳过）
         device_conf = self.iaa.config.conf.device
         if not isinstance(device_conf.lifecycle, PlayCoverDevice):
-            is_physical = isinstance(device_conf.lifecycle, NoDevice)
+            # AvdDevice 和 NoDevice 均需走 wm size 路径（_setup_resolution 内部判重跳过）
+            is_physical = isinstance(device_conf.lifecycle, (NoDevice, AvdDevice))
             package_name = package_by_server(self.iaa.config.conf.game.server)
             self._original_resolution = _setup_resolution(device, is_physical, device_conf.resolution_method, package_name)
         else:

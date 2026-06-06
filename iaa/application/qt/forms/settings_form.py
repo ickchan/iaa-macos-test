@@ -142,37 +142,48 @@ def _set_lifecycle_type(state: FormContext, value: object) -> None:
         state.conf.device.lifecycle = MuMuDevice(type=t)
         state.conf.device.connection = AutoConnection(type='auto')
         # 切到 MuMu 时，若 control_impl 不支持则重置
-        if state.conf.device.control_impl == 'nemu_ipc':
+        if state.conf.device.control_impl in ('nemu_ipc',):
             pass  # nemu_ipc 是 MuMu 的推荐
+        elif state.conf.device.control_impl == 'qemu_grpc':
+            _set_control_impl(state, 'adb')
     elif val == 'custom':
         if isinstance(current, CustomDevice):
             return
         state.conf.device.lifecycle = CustomDevice(type='custom')
         if isinstance(state.conf.device.connection, AutoConnection):
             state.conf.device.connection = TcpConnection(type='tcp')
-        if state.conf.device.control_impl == 'nemu_ipc':
-            state.conf.device.control_impl = 'adb'
+        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
+            _set_control_impl(state, 'adb')
     elif val == 'none':
         if isinstance(current, NoDevice):
             return
         state.conf.device.lifecycle = NoDevice(type='none')
         if isinstance(state.conf.device.connection, AutoConnection):
             state.conf.device.connection = UsbConnection(type='usb')
-        if state.conf.device.control_impl == 'nemu_ipc':
-            state.conf.device.control_impl = 'adb'
+        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
+            _set_control_impl(state, 'adb')
     elif val == 'avd':
         if isinstance(current, AvdDevice):
             return
         state.conf.device.lifecycle = AvdDevice(type='avd')
         state.conf.device.connection = AutoConnection(type='auto')
         if state.conf.device.control_impl == 'nemu_ipc':
-            state.conf.device.control_impl = 'adb'
+            _set_control_impl(state, 'adb')
     elif val == 'playcover':
         if isinstance(current, PlayCoverDevice):
             return
         state.conf.device.lifecycle = PlayCoverDevice(type='playcover')
-        if state.conf.device.control_impl == 'nemu_ipc':
-            state.conf.device.control_impl = 'adb'
+        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
+            _set_control_impl(state, 'adb')
+
+
+def _set_control_impl(state: FormContext, value: object) -> None:
+    old = state.conf.device.control_impl
+    state.conf.device.control_impl = str(value)  # type: ignore[assignment]
+    if value == 'qemu_grpc':
+        state.conf.device.resolution_method = 'keep'
+    elif old == 'qemu_grpc':
+        state.conf.device.resolution_method = 'auto'
 
 
 # ── MuMu instance id ──────────────────────────────────────────────────────────
@@ -593,12 +604,22 @@ def build_settings_form(
             Segmented(
                 key='device.controlImpl',
                 label='控制方式',
-                ref=ref(ctx.conf.device.control_impl),
+                ref=custom_ref(
+                    lambda s: s.conf.device.control_impl,
+                    _set_control_impl,
+                ),
                 options=lambda s: [
                     o for o in control_impl_options
+                    # nemu_ipc 仅 MuMu 可用
                     if not (o['value'] == 'nemu_ipc' and not isinstance(s.conf.device.lifecycle, MuMuDevice))
+                    # qemu_grpc 仅 AVD 可用
+                    and not (o['value'] == 'qemu_grpc' and not isinstance(s.conf.device.lifecycle, AvdDevice))
                 ],
-                help_text='对于 MuMu 模拟器，推荐使用 <b>Nemu IPC</b> 方式，对于其他模拟器与物理机，推荐使用 <b>scrcpy</b> 方式',
+                help_text=(
+                    '对于 MuMu 模拟器，推荐使用 <b>Nemu IPC</b> 方式；'
+                    '对于 AVD，推荐使用 <b>QEMU gRPC</b>（直接读取模拟器帧缓冲，速度最快）或 <b>ADB</b>；'
+                    '对于其他模拟器与物理机，推荐使用 <b>Scrcpy</b> 方式'
+                ),
             )
             NoticeBlock(
                 content='MuMu 模拟器选择 NemuIPC 效果最佳',
@@ -615,8 +636,28 @@ def build_settings_form(
                 key='device.resolutionMethod',
                 label='分辨率设置',
                 ref=ref(ctx.conf.device.resolution_method),
-                options=[{'value': k, 'label': v} for k, v in RESOLUTION_METHOD_DISPLAY_MAP.items()],
+                options=lambda s: (
+                    # qemu_grpc 只展示保持不变
+                    [{'value': 'keep', 'label': RESOLUTION_METHOD_DISPLAY_MAP['keep']}]
+                    if s.conf.device.control_impl == 'qemu_grpc'
+                    # 其他的正常展示
+                    else [{'value': k, 'label': v} for k, v in RESOLUTION_METHOD_DISPLAY_MAP.items()]
+                ),
+                enabled=lambda s: s.conf.device.control_impl != 'qemu_grpc',
                 on_reset=on_reset_resolution,
+                help_text=(
+                    '<b>自动</b>：物理设备执行 <code>wm size</code>；其他模拟器不修改。<br>'
+                    '<b>强制修改分辨率</b>：对所有设备执行 <code>wm size</code>。<br>'
+                    '<b>保持原始分辨率</b>：不做任何修改。'
+                ),
+            )
+            NoticeBlock(
+                content=(
+                    '使用 QEMU gRPC 控制方式时，'
+                    '请在 Android Studio AVD Manager 中预先将分辨率配置为 <b>1280x720</b>。'
+                ),
+                style='tip',
+                visible=lambda s: _is_avd(s) and s.conf.device.control_impl == 'qemu_grpc',
             )
 
         with Group('演出设置'):

@@ -1,6 +1,6 @@
 # ruff: noqa: E701
-from typing import Annotated, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Literal
+from pydantic import BaseModel, Field
 from iaa.definitions.enums import (
     LinkAccountOptions,
     GameCharacter,
@@ -72,7 +72,7 @@ DeviceConnection = Annotated[
 class DeviceConfig(BaseModel):
     lifecycle: DeviceLifecycle = Field(default_factory=lambda: MuMuDevice(type='mumu_v5'))
     connection: DeviceConnection = Field(default_factory=lambda: AutoConnection(type='auto'))
-    control_impl: Literal['nemu_ipc', 'adb', 'uiautomator', 'scrcpy'] = 'nemu_ipc'
+    control_impl: Literal['nemu_ipc', 'adb', 'uiautomator', 'scrcpy', 'qemu_grpc'] = 'nemu_ipc'
     scrcpy_virtual_display: bool = False
     resolution_method: Literal['auto', 'keep', 'wm_size'] = 'auto'
 
