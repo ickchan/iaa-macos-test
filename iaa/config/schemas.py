@@ -143,12 +143,12 @@ class SchedulerConfig(BaseModel):
     start_game_enabled: bool = True
     solo_live_enabled: bool = True
     challenge_live_enabled: bool = True
-    activity_story_enabled: bool = True
+    activity_story_enabled: bool = False
     cm_enabled: bool = True
     gift_enabled: bool = True
-    area_convos_enabled: bool = True
+    area_convos_enabled: bool = False
     mission_rewards_enabled: bool = True
-    event_shop_enabled: bool = True
+    event_shop_enabled: bool = False
     dump_sekai_home_enabled: bool = False
 
     def is_enabled(self, task_id: str) -> bool:
