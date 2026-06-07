@@ -188,7 +188,7 @@ def clear_common_cm():
                 logger.info('Returning to game from ad. (GP ad?)')
                 # device.commands.launch_app(package_name())
                 # 有些广告，调用 launch_app 会触发重新播放，导致无限循环
-                device.commands.adb_shell('adb shell am force-stop com.android.vending')
+                device.commands.adb_shell('am force-stop com.android.vending')
                 sleep(1)
             # 还在加载
             else:
