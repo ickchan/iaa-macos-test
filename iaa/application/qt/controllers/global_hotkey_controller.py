@@ -130,14 +130,17 @@ class GlobalHotkeyController(QObject):
         mapped = mapping.get(key)
         if mapped:
             return mapped
+        # Function keys F1–F35: pynput requires angle-bracket form <f1>, <f9>, etc.
+        if len(key) >= 2 and key[0] == 'F' and key[1:].isdigit():
+            return f'<{key.lower()}>'
         return key.lower()
 
     def _on_start(self) -> None:
         run = self._resolve_run()
         if run is not None:
-            QMetaObject.invokeMethod(cast(QObject, run), b'startRegular', Qt.ConnectionType.QueuedConnection)
+            QMetaObject.invokeMethod(cast(QObject, run), 'startRegular', Qt.ConnectionType.QueuedConnection)
 
     def _on_stop(self) -> None:
         run = self._resolve_run()
         if run is not None:
-            QMetaObject.invokeMethod(cast(QObject, run), b'stop', Qt.ConnectionType.QueuedConnection)
+            QMetaObject.invokeMethod(cast(QObject, run), 'stop', Qt.ConnectionType.QueuedConnection)
