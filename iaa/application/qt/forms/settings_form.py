@@ -9,6 +9,7 @@ from iaa.application.framework.dsl import (
     FormPage,
     FormSpec,
     Group,
+    Hook,
     IconItemPicker,
     NoticeBlock,
     Segmented,
@@ -140,50 +141,26 @@ def _set_lifecycle_type(state: FormContext, value: object) -> None:
             return
         t: Literal['mumu', 'mumu_v5'] = 'mumu' if val == 'mumu' else 'mumu_v5'
         state.conf.device.lifecycle = MuMuDevice(type=t)
-        state.conf.device.connection = AutoConnection(type='auto')
-        # 切到 MuMu 时，若 control_impl 不支持则重置
-        if state.conf.device.control_impl in ('nemu_ipc',):
-            pass  # nemu_ipc 是 MuMu 的推荐
-        elif state.conf.device.control_impl == 'qemu_grpc':
-            _set_control_impl(state, 'adb')
     elif val == 'custom':
         if isinstance(current, CustomDevice):
             return
         state.conf.device.lifecycle = CustomDevice(type='custom')
-        if isinstance(state.conf.device.connection, AutoConnection):
-            state.conf.device.connection = TcpConnection(type='tcp')
-        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
-            _set_control_impl(state, 'adb')
     elif val == 'none':
         if isinstance(current, NoDevice):
             return
         state.conf.device.lifecycle = NoDevice(type='none')
-        if isinstance(state.conf.device.connection, AutoConnection):
-            state.conf.device.connection = UsbConnection(type='usb')
-        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
-            _set_control_impl(state, 'adb')
     elif val == 'avd':
         if isinstance(current, AvdDevice):
             return
         state.conf.device.lifecycle = AvdDevice(type='avd')
-        state.conf.device.connection = AutoConnection(type='auto')
-        if state.conf.device.control_impl == 'nemu_ipc':
-            _set_control_impl(state, 'adb')
     elif val == 'playcover':
         if isinstance(current, PlayCoverDevice):
             return
         state.conf.device.lifecycle = PlayCoverDevice(type='playcover')
-        if state.conf.device.control_impl in ('nemu_ipc', 'qemu_grpc'):
-            _set_control_impl(state, 'adb')
 
 
 def _set_control_impl(state: FormContext, value: object) -> None:
-    old = state.conf.device.control_impl
     state.conf.device.control_impl = str(value)  # type: ignore[assignment]
-    if value == 'qemu_grpc':
-        state.conf.device.resolution_method = 'keep'
-    elif old == 'qemu_grpc':
-        state.conf.device.resolution_method = 'auto'
 
 
 # ── MuMu instance id ──────────────────────────────────────────────────────────
@@ -379,9 +356,38 @@ def _set_watch_ad_wait_sec(state: FormContext, value: object) -> None:
         return
     state.conf.cm.watch_ad_wait_sec = num
 
-def _on_server_change(state: FormContext, value: object) -> None:
-    if value != 'jp':
-        state.conf.game.link_account = 'no'
+# ── 归一化钩子 ────────────────────────────────────────────────────────────────
+
+def _normalize_game(ctx: FormContext) -> None:
+    if ctx.conf.game.server != 'jp':
+        ctx.conf.game.link_account = 'no'
+
+def _normalize_device(ctx: FormContext) -> None:
+    lc = ctx.conf.device.lifecycle
+
+    # connection 约束
+    if isinstance(lc, (MuMuDevice, AvdDevice)):
+        if not isinstance(ctx.conf.device.connection, AutoConnection):
+            ctx.conf.device.connection = AutoConnection(type='auto')
+    elif isinstance(lc, CustomDevice):
+        if isinstance(ctx.conf.device.connection, AutoConnection):
+            ctx.conf.device.connection = TcpConnection(type='tcp')
+    elif isinstance(lc, NoDevice):
+        if isinstance(ctx.conf.device.connection, AutoConnection):
+            ctx.conf.device.connection = UsbConnection(type='usb')
+
+    # control_impl 约束：nemu_ipc 仅 MuMu，qemu_grpc 仅 AVD
+    impl = ctx.conf.device.control_impl
+    if impl == 'nemu_ipc' and not isinstance(lc, MuMuDevice):
+        ctx.conf.device.control_impl = 'adb'
+        impl = 'adb'
+    elif impl == 'qemu_grpc' and not isinstance(lc, AvdDevice):
+        ctx.conf.device.control_impl = 'adb'
+        impl = 'adb'
+
+    # resolution_method 约束：qemu_grpc 强制 keep
+    if impl == 'qemu_grpc':
+        ctx.conf.device.resolution_method = 'keep'
 
 
 # ── Form ──────────────────────────────────────────────────────────────────────
@@ -441,13 +447,14 @@ def build_settings_form(
     event_shop_items = [{'value': item.value, 'label': item.display('cn')} for item in ShopItem]
 
     with FormPage('配置') as page:
+        Hook(_normalize_game)
+        Hook(_normalize_device)
         with Group('游戏设置'):
             Segmented(
                 key='game.server',
                 label='服务器',
                 ref=ref(ctx.conf.game.server),
                 options=[{'value': k, 'label': v} for k, v in SERVER_DISPLAY_MAP.items()],
-                on_change=_on_server_change,
                 help_text='''广告：现招募维护者维护除日服以外的服务器适配~ 如果你有兴趣参与维护，请联系作者。
 <hr>
 维护者：

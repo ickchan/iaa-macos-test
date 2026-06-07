@@ -545,6 +545,15 @@ def Hotkey(
     )
 
 
+def Hook(fn: Callable[[Any], None]) -> None:
+    """在当前页面注册一个归一化钩子。
+
+    钩子在每次字段变更后执行，接收完整上下文，用于维护跨字段约束。
+    应保证幂等：无论执行多少次，结果相同。
+    """
+    _require_current_page().add_hook(fn)
+
+
 def NoticeBlock(
     content: str,
     title: str | None = None,
