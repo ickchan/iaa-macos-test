@@ -110,7 +110,7 @@ Item {
                 anchors.fill: parent
                 visible: root.prefsMode
                 title: "一歌小助手"
-                iconSource: App.Globals.assetPath("icon_round.png")
+                iconSource: App.Globals.assetPath("ichika_chibi.png")
                 onBackRequested: root.backRequested()
             }
         }

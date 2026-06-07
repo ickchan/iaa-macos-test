@@ -107,7 +107,7 @@ def main() -> None:
     engine.rootContext().setContextProperty('tabBarBridge', tab_bar_bridge)
 
     root_path = Path(IaaService.app_root())
-    icon_path = root_path / 'assets' / 'icon_round.ico'
+    icon_path = root_path / 'assets' / 'ichika.ico'
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 

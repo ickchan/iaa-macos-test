@@ -22,7 +22,7 @@ class BuildConfig:
     version: str = field(default_factory=_default_version)
     """版本号，默认从 pyproject.toml 的 version 字段读取。"""
 
-    icon: str = 'assets/icon_round.ico'
+    icon: str = 'assets/ichika.ico'
     """图标路径，相对于项目根目录。"""
 
     desktop_entry: str = 'launch_desktop.py'

@@ -37,7 +37,7 @@ Item {
             Image {
                 anchors.centerIn: parent
                 width: 16; height: 16
-                source: App.Globals.assetPath("icon_round.png")
+                source: App.Globals.assetPath("ichika_chibi.png")
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 visible: status === Image.Ready
