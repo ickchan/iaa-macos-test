@@ -11,12 +11,14 @@ from iaa.config.manager import ConfigValidationError
 from iaa.telemetry import setup as setup_telemetry
 
 from .progress_bridge import ProgressBridge
+from .log_bridge import LogBridge
 from .profile_store_backend import ProfileStoreBackend
 from .run_controller import RunController
 from .scrcpy_controller import ScrcpyController
 from .settings_controller import SettingsController
 from .preferences_controller import PreferencesController
 from .help_controller import HelpController
+from .global_hotkey_controller import GlobalHotkeyController
 
 
 class AppController(QObject):
@@ -25,8 +27,9 @@ class AppController(QObject):
     telemetryConsentRequiredChanged = Signal()
     windowStyleChanged = Signal()
 
-    def __init__(self, parent: QObject | None = None) -> None:
-        super().__init__(parent)
+    def __init__(self, log_bridge: LogBridge) -> None:
+        super().__init__(None)
+        self.logBridge = log_bridge
         try:
             self.service = IaaService()
         except ConfigValidationError as e:
@@ -62,6 +65,12 @@ class AppController(QObject):
         self.preferencesController = PreferencesController(self.service, self)
         self.profileStoreBackend = ProfileStoreBackend(self.settingsController, self)
         self.helpController = HelpController(self.service, self)
+        self.globalHotkeyController = GlobalHotkeyController(
+            self.service,
+            self.runController,
+            self.preferencesController,
+            self,
+        )
         self._global_error = ''
         self._telemetry_consent_required = self.service.config.shared.telemetry.sentry is None
         setup_telemetry()
@@ -161,7 +170,28 @@ class AppController(QObject):
             pass
         return True
 
+    @Slot(result=str)
+    def checkMigrationMessages(self) -> str:
+        from iaa.config.migration import get_deferred_messages
+        messages = get_deferred_messages()
+        if not messages:
+            return ""
+
+        html = [f"<b>配置文件已升级到 v{self.service.version}。</b>"]
+        if messages:
+            html.append("<ol>")
+            for msg in messages:
+                if msg.old_version and msg.new_version:
+                    html.append(f"<li>v{msg.old_version} → v{msg.new_version}：{msg.text}</li>")
+                else:
+                    html.append(f"<li>{msg.text}</li>")
+            html.append("</ol>")
+        
+        return "".join(html)
+
     @Slot()
     def shutdown(self) -> None:
+        self.globalHotkeyController.shutdown()
         self.progressBridge.close()
+        self.logBridge.close()
         self.scrcpyController.set_visible(False)

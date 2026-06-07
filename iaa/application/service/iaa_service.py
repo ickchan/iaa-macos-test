@@ -27,17 +27,15 @@ class IaaService:
     def __configure_logging(self) -> None:
         """配置日志：控制台 DEBUG + 文件 logs/YYYY-MM-DD-hh-mm-ss.log。只配置一次。"""
         root_logger = logging.getLogger()
-        
-        # 如果已经配置过了就跳过（避免重复配置）
-        if root_logger.handlers:
-            return
             
         root_logger.setLevel(logging.INFO)
         logging.getLogger("kotonebot").setLevel(logging.DEBUG)
         logging.getLogger("iaa").setLevel(logging.DEBUG)
 
         # 控制台输出
-        console_handler = logging.StreamHandler()
+        # Write console logs to the real stderr to avoid duplicate UI output.
+        console_stream = sys.__stderr__ or sys.stderr
+        console_handler = logging.StreamHandler(stream=console_stream)
         console_handler.setLevel(logging.DEBUG)
         console_formatter = logging.Formatter(
             fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtQml import QJSValue
 
-from iaa.application.framework.dsl import PreferencesContext, RuntimeEngine, SnapshotState
+from iaa.application.framework.dsl import RuntimeEngine, SnapshotState
+from ..forms.context import PreferencesContext
 from ..forms.preferences_form import build_preferences_form
 
 if TYPE_CHECKING:
@@ -30,6 +31,8 @@ class PreferencesController(QObject):
     operationFailed = Signal(str)
     runtimeChanged = Signal()
     dirtyChanged = Signal(bool)
+    fieldUpdated = Signal(str, str)  # (field_id, field_json)
+    groupUpdated = Signal(int, bool)  # (group_index, visible)
 
     def __init__(self, iaa_service: 'IaaService', parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -74,6 +77,23 @@ class PreferencesController(QObject):
         runtime['dirty'] = self._state.dirty
         self._runtime = runtime
 
+    def _emit_updates(self, old_runtime: dict[str, Any]) -> None:
+        """比较新旧 runtime，逐字段发 fieldUpdated，逐分组发 groupUpdated。"""
+        new_field_map: dict[str, Any] = self._runtime.get('fieldMap', {})
+        old_field_map: dict[str, Any] = old_runtime.get('fieldMap', {})
+        new_groups: list[dict[str, Any]] = self._runtime.get('groups', [])
+        old_groups: list[dict[str, Any]] = old_runtime.get('groups', [])
+
+        for i, (old_g, new_g) in enumerate(zip(old_groups, new_groups)):
+            if old_g.get('visible', True) != new_g.get('visible', True):
+                self.groupUpdated.emit(i, bool(new_g.get('visible', True)))
+
+        for field_id, new_field in new_field_map.items():
+            if old_field_map.get(field_id) != new_field:
+                self.fieldUpdated.emit(field_id, json.dumps(new_field, ensure_ascii=False))
+
+        self.dirtyChanged.emit(self._state.dirty)
+
     @Slot(result=str)
     def getRuntime(self) -> str:
         return json.dumps(self._runtime, ensure_ascii=False)
@@ -97,9 +117,9 @@ class PreferencesController(QObject):
                 hook(self._state.context)
 
             self._sync_context_back()
+            old_runtime = self._runtime
             self._recompute_runtime()
-            self.runtimeChanged.emit()
-            self.dirtyChanged.emit(self._state.dirty)
+            self._emit_updates(old_runtime)
         except Exception as exc:
             self.operationFailed.emit(f'设置字段失败：{exc}')
 
@@ -126,3 +146,11 @@ class PreferencesController(QObject):
         self.runtimeChanged.emit()
         self.dirtyChanged.emit(self._state.dirty)
         return True
+
+    @Slot(result=str)
+    def hotkeyStart(self) -> str:
+        return self._iaa.config.shared.hotkeys.start or ''
+
+    @Slot(result=str)
+    def hotkeyStop(self) -> str:
+        return self._iaa.config.shared.hotkeys.stop or ''

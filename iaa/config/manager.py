@@ -4,8 +4,10 @@ from pathlib import Path
 
 from pydantic_core import ValidationError
 
-from .base import IaaConfig, GameConfig, LiveConfig
+from .base import IaaConfig, GameConfig, LiveConfig, CONFIG_VERSION_CODE
 from .shared import SharedConfig
+from .migration import MigrationChain, add_deferred_messages
+from .migrations import ProfileV1ToV2, ProfileV2ToV3
 
 
 class ConfigValidationError(Exception):
@@ -30,7 +32,17 @@ def get_invalid_field_names(e: ValidationError) -> tuple[List[str], str]:
 
     return sorted(fields), '\n'.join(details)
 
+
 config_path: str = './conf'
+
+
+# --- 迁移定义 ---
+
+shared_migration_chain = MigrationChain(steps=[])
+profile_migration_chain = MigrationChain(steps=[
+    ProfileV1ToV2(),
+    ProfileV2ToV3(),
+])
 
 
 def list() -> list[str]:
@@ -52,6 +64,11 @@ def read_shared() -> SharedConfig:
     conf_dir = Path(config_path)
     conf_dir.mkdir(parents=True, exist_ok=True)
     
+    # 迁移
+    messages = shared_migration_chain.run(conf_dir)
+    if messages:
+        add_deferred_messages(messages)
+
     shared_file = conf_dir / '_shared.json'
     
     if not shared_file.exists():
@@ -90,15 +107,17 @@ def create(name: str, *, exist: Literal['raise', 'ok'] = 'raise') -> None:
     
     # 创建默认配置
     from .base import GameConfig, LiveConfig
-    from .schemas import ChallengeLiveConfig, EventStoreConfig, SchedulerConfig
-    
+    from .schemas import ChallengeLiveConfig, DeviceConfig, DeveloperConfig, EventStoreConfig, SchedulerConfig
+
     default_config = IaaConfig(
         name=name,
         description=f"Configuration for {name}",
+        device=DeviceConfig(),
         game=GameConfig(),
         live=LiveConfig(),
         challenge_live=ChallengeLiveConfig(),
         event_shop=EventStoreConfig(),
+        developer=DeveloperConfig(),
         scheduler=SchedulerConfig(),
     )
     
@@ -168,6 +187,11 @@ def read(name: str, *, not_exist: Literal['raise', 'create'] | IaaConfig | None 
         else:
             raise ValueError(f"Invalid non_exist value: {not_exist}")
     
+    # 迁移
+    messages = profile_migration_chain.run(Path(config_path))
+    if messages:
+        add_deferred_messages(messages)
+
     with open(config_file, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
     
@@ -194,11 +218,15 @@ def fallback_invalid_fields(name: str, invalid_fields: List[str]) -> IaaConfig:
     with open(config_file, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
+    from .schemas import DeviceConfig, DeveloperConfig
+
     default = IaaConfig.model_construct(
         name=config_data.get('name', name),
         description=config_data.get('description', f"Configuration for {name}"),
+        device=DeviceConfig(),
         game=GameConfig(),
         live=LiveConfig(),
+        developer=DeveloperConfig(),
     )
     default_dict = default.model_dump()
 

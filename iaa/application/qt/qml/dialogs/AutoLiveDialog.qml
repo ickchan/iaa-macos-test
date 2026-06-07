@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import ".." as App
+import "../../../framework/dsl/qml/controls"
 
 Dialog {
     id: root
@@ -9,7 +11,6 @@ Dialog {
     width: 620
     anchors.centerIn: Overlay.overlay
     property var presets: []
-    signal showNotice(string kind, string text)
 
     function defaultPayload() {
         return {
@@ -64,7 +65,7 @@ Dialog {
                 onClicked: {
                     var raw = runController.lastAutoPresetJson()
                     if (!raw) {
-                        root.showNotice("error", "没有找到上次设定")
+                        App.Notice.show("error", "没有找到上次设定")
                         return
                     }
                     root.applyPreset(JSON.parse(raw))
@@ -127,7 +128,7 @@ Dialog {
 
         RowLayout {
             Label { text: "AP 倍率" }
-            ComboBox {
+            Select {
                 model: ["保持现状", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
                 enabled: formData.playMode !== "script_auto"
                 currentIndex: model.indexOf(formData.apMultiplier)
@@ -170,7 +171,7 @@ Dialog {
                         runController.runAutoLive(JSON.stringify(root.formData))
                         root.close()
                     } catch (error) {
-                        root.showNotice("error", String(error))
+                        App.Notice.show("error", String(error))
                     }
                 }
             }

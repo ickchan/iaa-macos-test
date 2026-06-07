@@ -238,8 +238,13 @@ def _configure_unit() -> None:
         elif R.Live.ButtonSetRecommendUnit.try_click():
             logger.debug('Clicked auto set unit button.')
     # 然后编队
-    R.Live.AutoSetDialog.TextRecommend.wait().click()
-    sleep(0.3)
+    rec_type_btn = R.Live.AutoSetDialog.TextRecommend.try_wait(timeout=1)
+    if rec_type_btn:
+        logger.debug('Setting unit with recommend type.')
+        rec_type_btn.click()
+        sleep(0.3)
+    else:
+        logger.debug('Recommend type button not found. Not during a event.')
     logger.debug('Clicking イベントメンバー button.')
     for _ in Loop():
         btn = (
@@ -520,16 +525,18 @@ def solo_live(plan: OncePlan | SingleLoopPlan | ListLoopPlan):
             total = (int(max_count) if max_count != float('inf') else None)
             reporter.message('开始单曲循环（脚本自动）')
             with reporter.phase('单曲循环', total=total) as phase:
+                first_run = True
                 while True:
                     if not _start_single_live_run(
                         'script',
                         auto_set_unit=auto_set_unit,
-                        ap_multiplier=plan.ap_multiplier,
+                        ap_multiplier=plan.ap_multiplier if first_run else None,
                         song_select_mode=plan.song_select_mode,
                         song_name=plan.song_name,
                         debug_enabled=plan.debug_enabled,
                     ):
                         break
+                    first_run = False
                     count += 1
                     phase.step(f'已完成 {count} 次单曲循环')
                     if count >= max_count:
@@ -543,6 +550,7 @@ def solo_live(plan: OncePlan | SingleLoopPlan | ListLoopPlan):
         total = (int(max_count) if max_count != float('inf') else None)
         reporter.message('开始列表循环')
         with reporter.phase('列表循环', total=total) as phase:
+            first_run = True
             for _ in Loop():
                 _prepare_solo_live(plan.loop_song_mode, None)
                 start_auto_live(
@@ -550,8 +558,9 @@ def solo_live(plan: OncePlan | SingleLoopPlan | ListLoopPlan):
                     return_to='home',
                     debug_enabled=plan.debug_enabled,
                     auto_set_unit=auto_set_unit,
-                    ap_multiplier=plan.ap_multiplier,
+                    ap_multiplier=plan.ap_multiplier if first_run else None,
                 )
+                first_run = False
                 count += 1
                 logger.info(f'Song looped. {count}/{max_count}')
                 phase.step(f'已完成 {count} 次列表循环')
@@ -573,7 +582,7 @@ def challenge_live(
             logger.debug('Clicked home LIVE button.')
             sleep(1)
         elif btn := R.Live.ButtonChallengeLive.find():
-            if not color.find('#ff5589', rect=R.Live.BoxChallengeLiveRedDot):
+            if not color.find('#ff5589', rect=R.Live.BoxChallengeLiveRedDot, threshold=0.6):
                 logger.info("Today's challenge live already cleared.")
                 return
             device.click(btn)
@@ -586,6 +595,7 @@ def challenge_live(
             # 文本，结果一直卡在 TextSelectCharacter 识别上。
             # 加上这个点击用于取消次数不足提示。
             logger.debug('Clicked group virtual singer.')
+            sleep(1)
 
     # 选择角色
     rep.message(f'选择角色：{character.value}')

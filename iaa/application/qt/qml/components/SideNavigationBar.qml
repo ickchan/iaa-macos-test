@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".." as App
+import "../../../framework/dsl/qml/controls"
 
 // import Iaa.Controllers 1.0
 
@@ -67,7 +68,7 @@ Rectangle {
                     Image {
                         anchors.fill: parent
                         anchors.margins: 2
-                        source: App.Globals.assetPath("chibi/chr_il_1.png")
+                        source: App.Globals.assetPath("chibi/ichika.png")
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                     }
@@ -102,7 +103,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            ComboBox {
+            Select {
                 Layout.fillWidth: true
                 model: root.configNames
                 textRole: "label"

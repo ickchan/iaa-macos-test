@@ -35,8 +35,15 @@ class NotifyConfig(BaseModel):
     push: PushConfig = PushConfig()
 
 
+class HotkeysConfig(BaseModel):
+    start: str | None = None
+    stop: str | None = None
+
+
 class SharedConfig(BaseModel):
+    version: int = 1
     profiles: ProfilesConfig = ProfilesConfig()
     telemetry: TelemetryConfig = TelemetryConfig()
     interface: InterfaceConfig = InterfaceConfig()
     notify: NotifyConfig = NotifyConfig()
+    hotkeys: HotkeysConfig = HotkeysConfig()

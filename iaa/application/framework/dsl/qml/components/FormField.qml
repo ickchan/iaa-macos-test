@@ -6,8 +6,11 @@ RowLayout {
     id: root
     property alias labelText: label.text
     property string helpText: ""
+    property string errorText: ""
     property alias control: controlLoader.sourceComponent
     readonly property bool hasLabel: labelText !== null && labelText !== undefined
+
+    default property alias _contentChildren: controlContainer.data
 
     RowLayout {
         Layout.preferredWidth: 120
@@ -26,9 +29,28 @@ RowLayout {
         }
     }
 
-    Loader {
-        id: controlLoader
+    ColumnLayout {
         Layout.fillWidth: true
-        Layout.alignment: Qt.AlignVCenter
+        Layout.alignment: Qt.AlignTop
+        spacing: 4
+
+        ColumnLayout {
+            id: controlContainer
+            Layout.fillWidth: true
+            spacing: 0
+
+            Loader {
+                id: controlLoader
+                Layout.fillWidth: true
+            }
+        }
+
+        Label {
+            visible: root.errorText !== ""
+            text: root.errorText
+            color: "#DC3545"
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+        }
     }
 }

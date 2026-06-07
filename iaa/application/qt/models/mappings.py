@@ -4,18 +4,22 @@ from typing import Literal
 
 from iaa.definitions.enums import (
     ChallengeLiveAward,
-    EmulatorOptions,
     GameCharacter,
     LinkAccountOptions,
 )
 
-EMULATOR_DISPLAY_MAP: dict[EmulatorOptions, str] = {
-    'mumu': 'MuMu',
-    'mumu_v5': 'MuMu v5.x',
-    'custom': '自定义',
-    'physical_android': '物理设备(USB)',
+LIFECYCLE_TYPE_DISPLAY_MAP: dict[str, str] = {
+    'mumu_v5': 'MuMu 12 (v5)',
+    'mumu': 'MuMu 12 (v4)',
+    'custom': '自定义模拟器',
+    'none': '物理机 / 手动管理',
+    'playcover': 'PlayCover',
 }
-EMULATOR_VALUE_MAP: dict[str, EmulatorOptions] = {value: key for key, value in EMULATOR_DISPLAY_MAP.items()}
+
+CONNECTION_TYPE_DISPLAY_MAP: dict[str, str] = {
+    'usb': 'USB',
+    'tcp': 'TCP / 无线',
+}
 
 SERVER_DISPLAY_MAP: dict[Literal['jp', 'tw', 'cn'], str] = {
     'jp': '日服',
@@ -92,7 +96,11 @@ def challenge_character_groups_for_ui() -> list[dict[str, object]]:
         {
             'group': group_name,
             'options': [
-                {'value': character.value, 'label': f'{character.last_name_cn}{character.first_name_cn}'}
+                {
+                    'value': character.value,
+                    'label': f'{character.last_name_cn}{character.first_name_cn}',
+                    'image': f'chibi/{character.value}.png',
+                }
                 for character in characters
             ],
         }
@@ -111,8 +119,18 @@ def challenge_characters_for_ui() -> list[dict[str, str]]:
     return all_characters
 
 
+_CHALLENGE_AWARD_IMAGES: dict[ChallengeLiveAward, str] = {
+    ChallengeLiveAward.Crystal: 'game_items/Jewel.png',
+    ChallengeLiveAward.MusicCard: 'game_items/Song_card.png',
+    ChallengeLiveAward.MiracleGem: 'game_items/Miracle_gem.png',
+    ChallengeLiveAward.MagicCloth: 'game_items/Magic_cloth.png',
+    ChallengeLiveAward.Coin: 'game_items/Coin.png',
+    ChallengeLiveAward.IntermediatePracticeScore: 'game_items/Practice_score_(intermediate).png',
+}
+
+
 def challenge_awards_for_ui() -> list[dict[str, str]]:
     return [
-        {'value': award.value, 'label': label}
+        {'value': award.value, 'label': label, 'image': _CHALLENGE_AWARD_IMAGES.get(award, '')}
         for award, label in ChallengeLiveAward.display_map_cn().items()
     ]

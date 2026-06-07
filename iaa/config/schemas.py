@@ -1,46 +1,83 @@
 # ruff: noqa: E701
-from typing import Literal, Optional
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field
 from iaa.definitions.enums import (
     LinkAccountOptions,
-    EmulatorOptions,
     GameCharacter,
     ChallengeLiveAward,
     ShopItem,
 )
 
 
-class MuMuEmulatorData(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+# ── 设备生命周期 ──────────────────────────────────────────────────────────────
 
+class MuMuDevice(BaseModel):
+    type: Literal['mumu_v5', 'mumu']
     instance_id: str | None = None
+    check_and_start: bool = False
+
+class CustomDevice(BaseModel):
+    type: Literal['custom']
+    check_and_start: bool = False
+    start_command: str = ''
+    wait_start_command: bool = False
+    stop_command: str = ''
+    running_command: str = ''
+
+class NoDevice(BaseModel):
+    type: Literal['none']
+
+class PlayCoverDevice(BaseModel):
+    type: Literal['playcover']
+    check_and_start: bool = False
+
+DeviceLifecycle = Annotated[
+    MuMuDevice | CustomDevice | NoDevice | PlayCoverDevice,
+    Field(discriminator='type')
+]
 
 
-class CustomEmulatorData(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+# ── ADB 连接 ──────────────────────────────────────────────────────────────────
 
-    adb_ip: str = '127.0.0.1'
-    adb_port: int = 5555
-    emulator_path: str = ''
-    emulator_args: str = ''
+class AutoConnection(BaseModel):
+    """MuMu 专用，连接信息由程序从 MuMu SDK 自动获取。"""
+    type: Literal['auto']
+
+class UsbConnection(BaseModel):
+    type: Literal['usb']
+    device_serial: str = ''        # 留空自动选第一个 USB 设备
+
+class TcpConnection(BaseModel):
+    type: Literal['tcp']
+    ip: str = '127.0.0.1'
+    port: int | None = None
+    run_adb_connect: bool = True
+    device_serial: str = ''        # 留空则默认 ip:port
+
+DeviceConnection = Annotated[
+    AutoConnection | UsbConnection | TcpConnection,
+    Field(discriminator='type')
+]
 
 
-class PhysicalAndroidData(BaseModel):
-    adb_serial: str = ''
+# ── 设备总配置 ────────────────────────────────────────────────────────────────
 
+class DeviceConfig(BaseModel):
+    lifecycle: DeviceLifecycle = Field(default_factory=lambda: MuMuDevice(type='mumu_v5'))
+    connection: DeviceConnection = Field(default_factory=lambda: AutoConnection(type='auto'))
+    control_impl: Literal['nemu_ipc', 'adb', 'uiautomator', 'scrcpy'] = 'nemu_ipc'
+    scrcpy_virtual_display: bool = False
+    resolution_method: Literal['auto', 'keep', 'wm_size'] = 'auto'
+
+
+# ── 游戏配置（仅游戏层面） ────────────────────────────────────────────────────
 
 class GameConfig(BaseModel):
     server: Literal['jp', 'tw', 'cn'] = 'jp'
     link_account: LinkAccountOptions = 'no'
-    emulator: EmulatorOptions = 'mumu_v5'
-    control_impl: Literal['nemu_ipc', 'adb', 'uiautomator', 'scrcpy'] = 'nemu_ipc'
-    check_emulator: bool = False
-    scrcpy_virtual_display: bool = False
-    resolution_method: Literal['auto', 'keep', 'wm_size'] = 'auto'
-    emulator_data: MuMuEmulatorData | CustomEmulatorData | PhysicalAndroidData | None = None
     """
     是否引继账号。
-    
+
     * `"no"`： 不引继账号
     * `"google"`： 引继 Google 账号
     * `"google_play"`： 引继 Google Play 账号
@@ -74,7 +111,7 @@ class LiveConfig(BaseModel):
 
 
 class ChallengeLiveConfig(BaseModel):
-    characters: list[GameCharacter] = []
+    characters: list[GameCharacter] = [GameCharacter.Ichika]
     award: ChallengeLiveAward = ChallengeLiveAward.Crystal
 
 
@@ -90,6 +127,11 @@ class EventStoreConfig(BaseModel):
         ShopItem.ITEM_3STAR_MEMBER,
     ]
 
+
+class DeveloperConfig(BaseModel):
+    sekai_dump_post_process: bool = False
+    screen_recording_enabled: bool = False
+
 class SchedulerConfig(BaseModel):
     start_game_enabled: bool = True
     solo_live_enabled: bool = True
@@ -100,10 +142,11 @@ class SchedulerConfig(BaseModel):
     area_convos_enabled: bool = True
     mission_rewards_enabled: bool = True
     event_shop_enabled: bool = True
+    dump_sekai_home_enabled: bool = False
 
     def is_enabled(self, task_id: str) -> bool:
         """根据任务标识判断是否启用。
-        
+
         任务标识应与 `iaa.tasks.registry.REGULAR_TASKS` 的键一致，例如：
         - "start_game"
         - "cm"
@@ -113,6 +156,7 @@ class SchedulerConfig(BaseModel):
         - "gift"
         - "area_convos"
         - "mission_rewards"
+        - "_dump_sekai_home"
         """
         if task_id == 'start_game':
             return bool(self.start_game_enabled)
@@ -132,4 +176,6 @@ class SchedulerConfig(BaseModel):
             return bool(self.mission_rewards_enabled)
         if task_id == 'event_shop':
             return bool(self.event_shop_enabled)
+        if task_id == '_dump_sekai_home':
+            return bool(self.dump_sekai_home_enabled)
         return False

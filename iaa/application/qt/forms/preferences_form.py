@@ -1,24 +1,26 @@
 from __future__ import annotations
 
-from iaa.application.framework.dsl import Checkbox, FormPage, Group, PreferencesContext, Select, Text, of, ref
+from iaa.application.framework.dsl import Checkbox, FormPage, FormSpec, Group, Hotkey, Select, Text, bind
+from typing import Callable, cast
+from .context import PreferencesContext
 
-CTX = of(PreferencesContext)
+ctx, ref = bind(PreferencesContext)
 
 
-def build_preferences_form() -> tuple:
+def build_preferences_form() -> tuple[FormSpec[PreferencesContext], list[Callable[[PreferencesContext], None]]]:
     with FormPage('设置') as page:
         with Group('数据收集'):
             Checkbox(
                 key='telemetry.sentry',
                 label='自动发送匿名错误报告',
-                ref=ref(CTX.shared.telemetry.sentry),
+                ref=ref(ctx.shared.telemetry.sentry),
             )
 
         with Group('界面'):
             Select(
                 key='interface.window_style',
                 label='窗口背景样式',
-                ref=ref(CTX.shared.interface.window_style),
+                ref=ref(ctx.shared.interface.window_style),
                 options=[
                     {'value': '', 'label': '自动'},
                     {'value': 'mica', 'label': 'Mica（仅 Win 11）'},
@@ -30,7 +32,7 @@ def build_preferences_form() -> tuple:
             Select(
                 key='interface.color_scheme',
                 label='色彩方案',
-                ref=ref(CTX.shared.interface.color_scheme),
+                ref=ref(ctx.shared.interface.color_scheme),
                 options=[
                     {'value': 'auto', 'label': '跟随系统'},
                     {'value': 'light', 'label': '浅色'},
@@ -40,7 +42,7 @@ def build_preferences_form() -> tuple:
             Select(
                 key='interface.theme_color',
                 label='主题色',
-                ref=ref(CTX.shared.interface.theme_color).map(
+                ref=ref(ctx.shared.interface.theme_color).map(
                     to_ui=lambda v: '' if v is None else str(v),
                     from_ui=lambda v: (str(v).strip() or None),
                 ),
@@ -61,19 +63,40 @@ def build_preferences_form() -> tuple:
             Checkbox(
                 key='notify.system',
                 label='系统通知',
-                ref=ref(CTX.shared.notify.system),
+                ref=ref(ctx.shared.notify.system),
             )
             Checkbox(
                 key='notify.push.enabled',
                 label='推送通知',
-                ref=ref(CTX.shared.notify.push.enabled),
+                ref=ref(ctx.shared.notify.push.enabled),
             )
             Text(
                 key='notify.push.data.command',
                 label='自定义命令',
-                ref=ref(CTX.shared.notify.push.data.command),
+                ref=ref(ctx.shared.notify.push.data.command),
                 placeholder='任务完成后执行的命令',
                 visible=lambda ctx: ctx.shared.notify.push.enabled,
             )
 
-    return page.spec, page.hooks
+        with Group('快捷键'):
+            Hotkey(
+                key='hotkeys.start',
+                label='启动脚本',
+                ref=ref(ctx.shared.hotkeys.start).map(
+                    to_ui=lambda v: '' if v is None else v,
+                    from_ui=lambda v: None if not v else v,
+                ),
+            )
+            Hotkey(
+                key='hotkeys.stop',
+                label='停止脚本',
+                ref=ref(ctx.shared.hotkeys.stop).map(
+                    to_ui=lambda v: '' if v is None else v,
+                    from_ui=lambda v: None if not v else v,
+                ),
+            )
+
+    return (
+        cast(FormSpec[PreferencesContext], page.spec),
+        cast(list[Callable[[PreferencesContext], None]], page.hooks),
+    )

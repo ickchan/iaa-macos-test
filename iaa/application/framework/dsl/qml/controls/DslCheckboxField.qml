@@ -18,9 +18,4 @@ Column {
         onToggled: root.formController.setValue(root.field.id, checked)
     }
 
-    Label {
-        visible: !!root.field.error
-        text: root.field.error || ""
-        color: "#DC3545"
-    }
 }

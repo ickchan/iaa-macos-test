@@ -8,7 +8,6 @@ PageContainer {
     title: "控制"
     property var tasks: []
     property var autoLiveDialog
-    signal showNotice(string kind, string text)
 
     function reloadTasks() {
         tasks = JSON.parse(runController.tasksStateJson())
@@ -128,7 +127,7 @@ PageContainer {
                             padding: 10
                             RowLayout {
                                 anchors.fill: parent
-                                CheckBox {
+                                Switch {
                                     visible: !!modelData.checkable
                                     checked: !!modelData.enabled
                                     enabled: !runController.running && !runController.isStarting && !runController.isStopping

@@ -9,8 +9,9 @@ import "."
 
 ScrollView {
     id: root
-    property var runtime: ({"groups": []})
+    property var runtime: ({"groups": [], "fieldMap": {}})
     property var formController
+    property var extraKinds: ({})
 
     anchors.fill: parent
     clip: true
@@ -25,8 +26,21 @@ ScrollView {
             delegate: GroupBox {
                 id: groupDelegate
                 required property var modelData
+                required property int index
+
+                property bool groupVisible: modelData.visible !== false
+
+                Connections {
+                    target: root.formController
+                    function onGroupUpdated(idx, visible) {
+                        if (idx === groupDelegate.index) {
+                            groupDelegate.groupVisible = visible
+                        }
+                    }
+                }
 
                 Layout.fillWidth: true
+                visible: groupDelegate.groupVisible
                 title: modelData.title || ""
 
                 ColumnLayout {
@@ -34,12 +48,13 @@ ScrollView {
                     spacing: 10
 
                     Repeater {
-                        model: groupDelegate.modelData.fields || []
+                        model: groupDelegate.modelData.fieldIds || []
                         delegate: Item {
                             id: fieldDelegate
-                            required property var modelData
+                            required property string modelData
 
                             Layout.fillWidth: true
+                            visible: renderer.fieldVisible
                             implicitWidth: renderer.implicitWidth
                             implicitHeight: renderer.implicitHeight
 
@@ -47,8 +62,10 @@ ScrollView {
                                 id: renderer
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                field: fieldDelegate.modelData
+                                fieldId: fieldDelegate.modelData
+                                initialField: root.runtime.fieldMap[fieldDelegate.modelData] || {}
                                 formController: root.formController
+                                extraKinds: root.extraKinds
                             }
                         }
                     }

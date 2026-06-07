@@ -144,6 +144,7 @@ ColumnLayout {
         Layout.fillWidth: true
         labelText: root.field.label
         helpText: root.field.helpText || ""
+        errorText: root.field.error || ""
 
         RowLayout {
             spacing: 10
@@ -215,9 +216,4 @@ ColumnLayout {
         }
     }
 
-    Label {
-        visible: !!root.field.error
-        text: root.field.error || ""
-        color: "#DC3545"
-    }
 }

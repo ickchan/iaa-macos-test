@@ -55,8 +55,9 @@ ColumnLayout {
         Layout.fillWidth: true
         labelText: root.field.label
         helpText: root.field.helpText || ""
+        errorText: root.field.error || ""
         RowLayout {
-            ComboBox {
+            Select {
                 id: combo
                 Layout.fillWidth: true
                 enabled: !!root.field.enabled
@@ -71,41 +72,17 @@ ColumnLayout {
                         return
                     }
                     let selected = options[index]
-                    if (root.field.props && root.field.props.singleFromList) {
-                        root.formController.setValue(root.field.id, [root.itemValue(selected)])
-                    } else {
-                        root.formController.setValue(root.field.id, root.itemValue(selected))
-                    }
-                }
-
-                contentItem: Text {
-                    leftPadding: 6
-                    rightPadding: combo.indicator.width + combo.spacing
-                    text: {
-                        if (!combo.model || combo.currentIndex < 0 || combo.currentIndex >= combo.model.length) {
-                            return ""
-                        }
-                        return root.itemLabel(combo.model[combo.currentIndex])
-                    }
-                    font: combo.font
-                    color: combo.enabled ? combo.palette.text : combo.palette.placeholderText
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
+                    root.formController.setValue(root.field.id, root.itemValue(selected))
                 }
             }
 
             Button {
-                visible: !!(root.field.props && root.field.props.withResetButton)
-                text: "恢复分辨率"
+                visible: !!root.field.refreshable
+                text: root.field.loading ? "获取中..." : "刷新"
                 enabled: !!root.field.enabled
-                onClicked: root.formController.triggerAction(root.field.id, "resetResolution", "{}")
+                onClicked: root.formController.triggerAction(root.field.id, "refresh", "{}")
             }
         }
     }
 
-    Label {
-        visible: !!root.field.error
-        text: root.field.error || ""
-        color: "#DC3545"
-    }
 }

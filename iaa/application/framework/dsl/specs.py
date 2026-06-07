@@ -2,19 +2,16 @@ from __future__ import annotations
 
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Generic, Literal, TypeVar, cast
+import uuid
 
-from .context import FormContext
 from .refs import Ref
 
-Predicate = Callable[[FormContext], bool]
-OptionsProvider = Callable[[FormContext], list[Any]]
-Validator = Callable[[Any, FormContext], str | None]
-OnChangeHook = Callable[[FormContext, Any], None]
+TCtx = TypeVar('TCtx')
 
 
 @dataclass(slots=True)
-class FieldSpec:
+class FieldSpec(Generic[TCtx]):
     """单个表单字段的静态定义。
 
     这个对象只描述“页面应该长什么样”和“字段如何计算”，不保存任何运行时 UI 状态。
@@ -37,21 +34,22 @@ class FieldSpec:
     key: str
     kind: str
     label: str | None
-    ref: Ref[FormContext, Any]
+    ref: Ref[TCtx, Any]
     help_text: str | None = None
 
     default: Any = None
-    visible: Predicate | bool = True
-    enabled: Predicate | bool = True
-    options: OptionsProvider | list[Any] | None = None
+    visible: Callable[[TCtx], bool] | bool = True
+    enabled: Callable[[TCtx], bool] | bool = True
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None
 
     props: dict[str, Any] = field(default_factory=dict)
-    validators: list[Validator] = field(default_factory=list)
-    on_change: OnChangeHook | None = None
+    validators: list[Callable[[Any, TCtx], str | None]] = field(default_factory=list)
+    on_change: Callable[[TCtx, Any], None] | None = None
+    actions: dict[str, Callable[[TCtx], None]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
-class GroupSpec:
+class GroupSpec(Generic[TCtx]):
     """表单中的一个分组。
 
     分组只负责把字段聚合在一起，不承载任何交互逻辑。
@@ -59,11 +57,12 @@ class GroupSpec:
     """
 
     title: str
-    fields: list[FieldSpec]
+    fields: list[FieldSpec[TCtx]]
+    visible: Callable[[TCtx], bool] | bool = True
 
 
 @dataclass(slots=True)
-class FormSpec:
+class FormSpec(Generic[TCtx]):
     """整张配置页的静态定义。
 
     它是 DSL 的最终产物，由 FormPage 收集多个 GroupSpec 后生成。
@@ -71,11 +70,11 @@ class FormSpec:
     """
 
     title: str
-    groups: list[GroupSpec]
+    groups: list[GroupSpec[TCtx]]
 
 
 _current_page: ContextVar['FormPage | None'] = ContextVar('dsl_current_page', default=None)
-_current_group: ContextVar[GroupSpec | None] = ContextVar('dsl_current_group', default=None)
+_current_group: ContextVar[GroupSpec[Any] | None] = ContextVar('dsl_current_group', default=None)
 
 
 class FormPage:
@@ -100,8 +99,8 @@ class FormPage:
             title: 页面标题，会作为 QML 页面标题和 runtime 标题。
         """
         self.title = title
-        self._groups: list[GroupSpec] = []
-        self._hooks: list[Callable[[FormContext], None]] = []
+        self._groups: list[GroupSpec[Any]] = []
+        self._hooks: list[Callable[[Any], None]] = []
         self._token: Token['FormPage | None'] | None = None
 
     def __enter__(self) -> 'FormPage':
@@ -115,11 +114,11 @@ class FormPage:
             _current_page.reset(self._token)
             self._token = None
 
-    def add_group(self, group: GroupSpec) -> None:
+    def add_group(self, group: GroupSpec[Any]) -> None:
         """把一个分组追加到当前页面。"""
         self._groups.append(group)
 
-    def add_hook(self, hook: Callable[[FormContext], None]) -> None:
+    def add_hook(self, hook: Callable[[Any], None]) -> None:
         """注册一个页面级归一化钩子。
 
         页面级 hook 会在字段 on_change 之后执行，通常用于跨字段联动。
@@ -127,12 +126,12 @@ class FormPage:
         self._hooks.append(hook)
 
     @property
-    def spec(self) -> FormSpec:
+    def spec(self) -> FormSpec[Any]:
         """导出当前页面的静态定义。"""
         return FormSpec(title=self.title, groups=list(self._groups))
 
     @property
-    def hooks(self) -> list[Callable[[FormContext], None]]:
+    def hooks(self) -> list[Callable[[Any], None]]:
         """导出当前页面注册的页面级 hook 列表。"""
         return list(self._hooks)
 
@@ -150,15 +149,16 @@ class Group:
     在 Group 上下文内创建的字段会自动挂到当前分组。
     """
 
-    def __init__(self, title: str) -> None:
+    def __init__(self, title: str, visible: Callable[[Any], bool] | bool = True) -> None:
         """创建一个分组构建器。
 
         Args:
             title: 分组标题。
+            visible: 分组可见性，可以是布尔值或接收 state 的 predicate。
         """
         self.title = title
-        self._group_spec = GroupSpec(title=title, fields=[])
-        self._token: Token[GroupSpec | None] | None = None
+        self._group_spec: GroupSpec[Any] = GroupSpec(title=title, fields=[], visible=visible)
+        self._token: Token[GroupSpec[Any] | None] | None = None
 
     def __enter__(self) -> 'Group':
         """进入分组构建上下文。"""
@@ -186,7 +186,7 @@ def _require_current_page() -> FormPage:
     return page
 
 
-def _require_current_group() -> GroupSpec:
+def _require_current_group() -> GroupSpec[Any]:
     """获取当前分组构建器。
 
     字段必须定义在 ``with Group(...)`` 内部，否则无法知道该字段属于哪个分组。
@@ -197,13 +197,13 @@ def _require_current_group() -> GroupSpec:
     return group
 
 
-def _append_field(field: FieldSpec) -> FieldSpec:
-    """把字段追加到当前分组，并返回字段本身。
+def register_field(field: FieldSpec[TCtx]) -> FieldSpec[TCtx]:
+    """将字段注册到当前 Group 上下文，并返回字段本身。
 
-    这样 builder 调用既能完成注册，也能保留字段对象，方便后续拼装 hook 或测试。
+    项目自定义 builder 函数应以此作为最后一步，与框架内置的 Text/Select 等保持一致。
     """
     group = _require_current_group()
-    group.fields.append(field)
+    group.fields.append(cast('FieldSpec[Any]', field))
     return field
 
 
@@ -211,17 +211,17 @@ def Text(
     key: str,
     label: str | None,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
     placeholder: str | None = None,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个文本输入字段。
 
     Args:
@@ -240,7 +240,7 @@ def Text(
     merged_props = {} if props is None else dict(props)
     if placeholder is not None:
         merged_props['placeholder'] = placeholder
-    return _append_field(
+    return register_field(
         FieldSpec(
             key=key,
             kind='text',
@@ -262,28 +262,92 @@ def Select(
     key: str,
     label: str | None,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
-    with_reset_button: bool = False,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
+    refresh: Callable[[TCtx], None] | None = None,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个普通选择字段。
 
     这个类型适合下拉框一类的单选 UI，QML 渲染层会根据 options 决定可选项。
+    ``refresh`` 表示该字段的选项可由用户主动刷新；设置后渲染层会显示刷新按钮。
     """
-    merged_props = {} if props is None else dict(props)
-    if with_reset_button:
-        merged_props['withResetButton'] = True
-    return _append_field(
+    field_actions: dict[str, Callable[[TCtx], None]] = {}
+    if refresh is not None:
+        field_actions['refresh'] = refresh
+    return register_field(
         FieldSpec(
             key=key,
             kind='select',
+            label=label,
+            ref=ref,
+            help_text=help_text,
+            default=default,
+            visible=visible,
+            enabled=enabled,
+            options=options,
+            props={} if props is None else dict(props),
+            validators=[] if validators is None else validators,
+            on_change=on_change,
+            actions=field_actions,
+        )
+    )
+
+
+def IconItemPicker(
+    key: str,
+    label: str | None,
+    *,
+    ref: Ref[TCtx, Any],
+    default: Any = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
+    columns: int | None = None,
+    cell_size: int | None = None,
+    icon_size: int | None = None,
+    popup_max_height: int | None = None,
+    popup_padding: int | None = None,
+    show_label: bool | None = None,
+    cell_radius: int | None = None,
+    help_text: str | None = None,
+    props: dict[str, Any] | None = None,
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
+    """声明一个图标选择字段。
+
+    Args:
+        columns: 固定列数。``None`` 为自动模式，根据 ``cell_size`` 自适应宽度。
+        props: 渲染层 escape hatch，用于尚未提升为 typed 参数的实验性配置。
+    """
+    merged_props = {} if props is None else dict(props)
+    # columns=None 表示自动模式，不写入 props，QML 侧遇到 undefined 时进入自适应逻辑
+    if columns is not None:
+        merged_props['columns'] = columns
+    if cell_size is not None:
+        merged_props['cellSize'] = cell_size
+    if icon_size is not None:
+        merged_props['iconSize'] = icon_size
+    if popup_max_height is not None:
+        merged_props['popupMaxHeight'] = popup_max_height
+    if popup_padding is not None:
+        merged_props['popupPadding'] = popup_padding
+    if show_label is not None:
+        merged_props['showLabel'] = show_label
+    if cell_radius is not None:
+        merged_props['cellRadius'] = cell_radius
+
+    return register_field(
+        FieldSpec(
+            key=key,
+            kind='icon_item_picker',
             label=label,
             ref=ref,
             help_text=help_text,
@@ -302,21 +366,21 @@ def Segmented(
     key: str,
     label: str | None,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个分段按钮字段。
 
     这个类型用于互斥选项切换，例如模拟器、服务器、控制方式等。
     """
-    return _append_field(
+    return register_field(
         FieldSpec(
             key=key,
             kind='segmented',
@@ -338,21 +402,21 @@ def Checkbox(
     key: str,
     label: str | None,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个布尔开关字段。
 
     适用于勾选框、开关类 UI。
     """
-    return _append_field(
+    return register_field(
         FieldSpec(
             key=key,
             kind='checkbox',
@@ -375,22 +439,22 @@ def Custom(
     label: str | None,
     kind: str,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个自定义字段类型。
 
     当内置字段不足以描述 UI 时使用，例如 ``mumu_picker`` 或 ``transfer_list``。
     ``kind`` 由 QML 渲染层根据注册表选择对应控件。
     """
-    return _append_field(
+    return register_field(
         FieldSpec(
             key=key,
             kind=kind,
@@ -412,23 +476,23 @@ def TransferList(
     key: str,
     label: str | None,
     *,
-    ref: Ref[FormContext, Any],
+    ref: Ref[TCtx, Any],
     default: Any = None,
-    visible: Predicate | bool = True,
-    enabled: Predicate | bool = True,
-    options: OptionsProvider | list[Any] | None = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    options: Callable[[TCtx], list[Any]] | list[Any] | None = None,
     reorderable: bool = False,
     height: int = 220,
     help_text: str | None = None,
     props: dict[str, Any] | None = None,
-    validators: list[Validator] | None = None,
-    on_change: OnChangeHook | None = None,
-) -> FieldSpec:
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
     """声明一个穿梭框字段。"""
     merged_props = {} if props is None else dict(props)
     merged_props['reorderable'] = reorderable
     merged_props['height'] = height
-    return _append_field(
+    return register_field(
         FieldSpec(
             key=key,
             kind='transfer_list',
@@ -442,5 +506,74 @@ def TransferList(
             props=merged_props,
             validators=[] if validators is None else validators,
             on_change=on_change,
+        )
+    )
+
+
+def Hotkey(
+    key: str,
+    label: str | None,
+    *,
+    ref: Ref[TCtx, Any],
+    default: Any = None,
+    visible: Callable[[TCtx], bool] | bool = True,
+    enabled: Callable[[TCtx], bool] | bool = True,
+    help_text: str | None = None,
+    props: dict[str, Any] | None = None,
+    validators: list[Callable[[Any, TCtx], str | None]] | None = None,
+    on_change: Callable[[TCtx, Any], None] | None = None,
+) -> FieldSpec[TCtx]:
+    """声明一个快捷键录制字段。
+
+    值以 Qt portable sequence string 格式存储，例如 ``"Ctrl+F9"``、``"Meta+Shift+A"``。
+    ``None`` 表示未设置。
+    """
+    return register_field(
+        FieldSpec(
+            key=key,
+            kind='hotkey',
+            label=label,
+            ref=ref,
+            help_text=help_text,
+            default=default,
+            visible=visible,
+            enabled=enabled,
+            props={} if props is None else props,
+            validators=[] if validators is None else validators,
+            on_change=on_change,
+        )
+    )
+
+
+def NoticeBlock(
+    content: str,
+    title: str | None = None,
+    *,
+    style: Literal['tip', 'warning', 'error', 'note'] = 'note',
+    visible: Callable[[Any], bool] | bool = True,
+    enabled: Callable[[Any], bool] | bool = True,
+) -> FieldSpec[Any]:
+    """声明一个提示块字段。"""
+    # 提示块没有真实的业务值，不需要 ref，生成一个虚拟的 key
+    dummy_key = f"_notice_{uuid.uuid4().hex}"
+
+    from .refs import custom_ref
+    dummy_ref: Ref[Any, Any] = custom_ref(lambda s: None, lambda s, v: None)
+
+    return register_field(
+        FieldSpec(
+            key=dummy_key,
+            kind='notice_block',
+            label=None,
+            ref=dummy_ref,
+            help_text=None,
+            default=None,
+            visible=visible,
+            enabled=enabled,
+            props={
+                'style': style,
+                'title': title,
+                'content': content,
+            },
         )
     )

@@ -9,26 +9,56 @@ import "components"
 
 ApplicationWindow {
     id: window
-    width: 980
+    width: 1100
     height: 680
     visible: true
     title: window.appCtrl ? window.appCtrl.windowTitle : ""
-    font.family: "Microsoft YaHei UI"
-    color: window.appCtrl && window.appCtrl.windowStyle === "solid" ? palette.window : "transparent"
-    background: null
+    font.family: Qt.platform.os === "windows"
+        ? "Microsoft YaHei UI"
+        : Qt.platform.os === "osx"
+            ? "PingFang SC"
+            : "Noto Sans CJK SC"
 
     readonly property var appCtrl: appController
     readonly property var runCtrl: runController
     readonly property var settingsCtrl: settingsController
     readonly property var prefsCtrl: preferencesController
-    property string noticeKind: "info"
-    property string noticeText: ""
+    readonly property var logBridgeObj: logBridge
     property bool allowImmediateClose: false
 
-    function showNotice(kind, text) {
-        window.noticeKind = kind
-        window.noticeText = text
-        noticePopup.open()
+    function requestTelemetryConsent() {
+        App.Modal.message({
+            title: "数据收集",
+            content: "是否允许 iaa 自动发送匿名错误报告？发送的信息仅用于改善 iaa。",
+            buttons: [
+                { text: "拒绝", value: "deny" },
+                { text: "允许", value: "allow", highlighted: true }
+            ],
+            width: 420,
+            closePolicy: Popup.NoAutoClose
+        }, function(result) {
+            if (!window.appCtrl) {
+                return
+            }
+            if (result === "allow") {
+                window.appCtrl.setTelemetryConsent(true)
+            }
+            if (result === "deny") {
+                window.appCtrl.setTelemetryConsent(false)
+            }
+        })
+    }
+
+    function showMigrationMessage(text) {
+        App.Modal.message({
+            title: "配置升级",
+            content: text,
+            textFormat: Text.RichText,
+            buttons: [
+                { text: "确定", value: "ok", highlighted: true }
+            ],
+            width: 520
+        })
     }
 
     function requestAppClose() {
@@ -37,8 +67,20 @@ ApplicationWindow {
             window.close()
         }
         if (window.runCtrl && window.runCtrl.running) {
-            quitDialog.pendingCloseAction = closeRunner
-            quitDialog.open()
+            App.Modal.message({
+                title: "确认退出",
+                content: "当前仍在执行任务，确定要退出吗？退出将先停止任务。",
+                buttons: [
+                    { text: "取消", value: "cancel" },
+                    { text: "退出", value: "ok", highlighted: true }
+                ],
+                width: 420,
+                closePolicy: Popup.NoAutoClose
+            }, function(result) {
+                if (result === "ok") {
+                    navigation.requestGuardedAction("关闭窗口", closeRunner)
+                }
+            })
             return
         }
         navigation.requestGuardedAction("关闭窗口", closeRunner)
@@ -59,7 +101,7 @@ ApplicationWindow {
             id: sideNav
             Layout.fillHeight: true
             // model: ["控制", "配置", "偏好", "帮助", "关于"]
-            model: ["控制", "配置", "偏好", "关于"]
+            model: ["控制", "配置", "偏好", "日志", "关于"]
             currentConfig: App.ProfileStore.currentProfileName
 
             onCurrentChanging: function(index, previousIndex) {
@@ -88,19 +130,21 @@ ApplicationWindow {
             ControlPage {
                 id: controlPage
                 autoLiveDialog: autoLiveDialogView
-                onShowNotice: function(kind, text) { window.showNotice(kind, text) }
             }
 
             SettingsPage {
                 id: settingsPage
                 formController: window.settingsCtrl
-                onShowNotice: function(kind, text) { window.showNotice(kind, text) }
             }
 
             PreferencesPage {
                 id: preferencesPage
                 prefsController: window.prefsCtrl
-                onShowNotice: function(kind, text) { window.showNotice(kind, text) }
+            }
+
+            LogPage {
+                id: logPage
+                logBridge: window.logBridgeObj
             }
 
             // HelpPage {}
@@ -111,7 +155,6 @@ ApplicationWindow {
 
     AutoLiveDialog {
         id: autoLiveDialogView
-        onShowNotice: function(kind, text) { window.showNotice(kind, text) }
     }
 
     ConfigManagerDialog {
@@ -120,111 +163,16 @@ ApplicationWindow {
         settingsCtrl: window.settingsCtrl
     }
 
+    ModalHost {
+        id: modalHost
+    }
+
+    NoticeHost {
+        id: noticeHost
+    }
+
     // ScrcpyWindow {}
 
-    Popup {
-        id: noticePopup
-        x: parent.width - width - 24
-        y: 24
-        width: 360
-        height: implicitHeight
-        padding: 14
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {
-            radius: 8
-            color: window.noticeKind === "error" ? "#7f1d1d" : "#14532d"
-        }
-        contentItem: Label {
-            width: parent.width
-            wrapMode: Text.Wrap
-            color: "white"
-            text: window.noticeText
-        }
-        onOpened: closeTimer.restart()
-    }
-
-    Timer {
-        id: closeTimer
-        interval: 4000
-        onTriggered: noticePopup.close()
-    }
-
-    Dialog {
-        id: telemetryDialog
-        modal: true
-        title: "数据收集"
-        standardButtons: Dialog.NoButton
-        closePolicy: Popup.NoAutoClose
-        anchors.centerIn: Overlay.overlay
-        width: 420
-
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                text: "是否允许 iaa 自动发送匿名错误报告？发送的信息仅用于改善 iaa。"
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                Button {
-                        text: "拒绝"
-                    onClicked: {
-                        window.appCtrl.setTelemetryConsent(false)
-                        telemetryDialog.close()
-                    }
-                }
-                Button {
-                    text: "允许"
-                    highlighted: true
-                    onClicked: {
-                        window.appCtrl.setTelemetryConsent(true)
-                        telemetryDialog.close()
-                    }
-                }
-            }
-        }
-    }
-
-    Dialog {
-        id: quitDialog
-        modal: true
-        title: "确认退出"
-        standardButtons: Dialog.NoButton
-        width: 420
-        anchors.centerIn: Overlay.overlay
-        property var pendingCloseAction: null
-        background: null
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                text: "当前仍在执行任务，确定要退出吗？退出将先停止任务。"
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                Button {
-                    text: "取消"
-                    onClicked: {
-                        quitDialog.pendingCloseAction = null
-                        quitDialog.close()
-                    }
-                }
-                Button {
-                    text: "退出"
-                    highlighted: true
-                    onClicked: {
-                        quitDialog.close()
-                        if (quitDialog.pendingCloseAction) {
-                            navigation.requestGuardedAction("关闭窗口", quitDialog.pendingCloseAction)
-                            quitDialog.pendingCloseAction = null
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     Dialog {
         id: unsavedChangesDialog
@@ -275,11 +223,11 @@ ApplicationWindow {
     Connections {
         target: window.appCtrl
         function onNotificationRaised(kind, text) {
-            window.showNotice(kind, text)
+            App.Notice.show(kind, text)
         }
         function onTelemetryConsentRequiredChanged() {
             if (window.appCtrl && window.appCtrl.telemetryConsentRequired) {
-                telemetryDialog.open()
+                window.requestTelemetryConsent()
             }
         }
     }
@@ -287,13 +235,19 @@ ApplicationWindow {
     Connections {
         target: window.runCtrl
         function onScriptAutoWarningRequested(text) {
-            window.showNotice("error", text)
+            App.Notice.show("error", text)
         }
     }
 
     Component.onCompleted: {
         if (window.appCtrl && window.appCtrl.telemetryConsentRequired) {
-            telemetryDialog.open()
+            window.requestTelemetryConsent()
+        }
+        if (window.appCtrl) {
+            var migrationMsg = window.appCtrl.checkMigrationMessages()
+            if (migrationMsg) {
+                window.showMigrationMessage(migrationMsg)
+            }
         }
     }
 
