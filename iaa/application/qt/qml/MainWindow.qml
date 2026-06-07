@@ -301,8 +301,8 @@ ApplicationWindow {
         TabManager.tabsChanged.connect(window._onTabsChanged)
         TabManager.activeTabChanged.connect(window._onActiveTabChanged)
 
-        // 根据 startup_page 设置决定初始页面
-        if (window.appCtrl && window.appCtrl.startupPage === "last_opened") {
+        // 根据 startup_page 设置决定初始页面（无 tab 时保持总览）
+        if (window.appCtrl && window.appCtrl.startupPage === "last_opened" && window.tabList.length > 0) {
             titleBar.setCurrentIndex(1)
         }
         TabManager.scriptAutoWarningRequested.connect(function(text) {

@@ -117,8 +117,11 @@ class TabManager(QObject):
             names = [n for n in names if n in available]
 
             if not names:
+                if not available:
+                    # 初次启动，没有任何配置文件，保持 tab 列表为空
+                    return
                 # 兜底：用 last_used 或第一个可用配置
-                fallback = last_used if last_used in available else (manager.list() or ['default'])[0]
+                fallback = last_used if last_used in available else manager.list()[0]
                 names = [fallback]
 
             for name in names:
