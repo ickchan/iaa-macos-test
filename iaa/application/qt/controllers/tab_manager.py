@@ -50,6 +50,7 @@ class TabManager(QObject):
 
     tabsChanged = Signal()
     activeTabChanged = Signal()
+    anyBusyChanged = Signal()
     closeTabBlocked = Signal(str)          # reason: str，tab 正在运行或是最后一个
     readyToCloseTab = Signal(int)          # index: int，可以关闭（QML 负责 dirty 检查后调 closeTab）
     tabOpenFailed = Signal(str)            # error: str
@@ -170,6 +171,8 @@ class TabManager(QObject):
         )
         # 任意 tab 的脚本警告都转发，QML 统一处理
         entry.run_ctrl.scriptAutoWarningRequested.connect(self.scriptAutoWarningRequested)
+        # 任意 tab 的状态变化都通知 anyBusy
+        entry.run_ctrl.stateChanged.connect(self.anyBusyChanged)
 
     def _on_entry_profile_changed(self, entry: _TabEntry, name: str) -> None:
         if self._active_entry() is entry:
@@ -298,10 +301,16 @@ class TabManager(QObject):
 
         tabs = list(self._tabs)
 
+        # 将所有待启动 tab 标记为排队中
+        for entry in tabs:
+            if not entry.is_running and not entry.scheduler.is_starting:
+                entry.run_ctrl._set_queued(True)
+
         def _run() -> None:
             for entry in tabs:
                 if entry.is_running or entry.scheduler.is_starting:
                     continue
+                entry.run_ctrl._set_queued(False)
                 entry.scheduler.start_regular(run_in_thread=True)
                 time.sleep(0.5)
                 while (entry.scheduler.running
@@ -418,5 +427,12 @@ class TabManager(QObject):
     def _get_any_running(self) -> bool:
         return any(t.is_running for t in self._tabs)
 
+    def _get_any_busy(self) -> bool:
+        return any(
+            t.is_running or t.scheduler.is_starting or t.run_ctrl._queued
+            for t in self._tabs
+        )
+
     anyRunning = Property(bool, _get_any_running, notify=tabsChanged)
+    anyBusy = Property(bool, _get_any_busy, notify=anyBusyChanged)
 

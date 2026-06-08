@@ -102,6 +102,7 @@ PageContainer {
                     Button {
                         id: seqBtn
                         highlighted: true
+                        enabled: !TabManager.anyBusy
                         leftPadding: 16
                         rightPadding: 16
                         topPadding: 8
@@ -132,6 +133,7 @@ PageContainer {
                     Button {
                         id: parBtn
                         highlighted: true
+                        enabled: !TabManager.anyBusy
                         leftPadding: 16
                         rightPadding: 16
                         topPadding: 8
@@ -239,14 +241,17 @@ PageContainer {
                                         width: 8
                                         height: 8
                                         radius: 4
-                                        color: (card.runCtrl && card.runCtrl.running)
-                                            ? palette.highlight
-                                            : Qt.rgba(palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.3)
+                                        color: {
+                                            if (card.runCtrl && card.runCtrl.running) return palette.highlight
+                                            if (card.runCtrl && card.runCtrl.isQueued) return "#f59e0b"
+                                            return Qt.rgba(palette.windowText.r, palette.windowText.g, palette.windowText.b, 0.3)
+                                        }
                                     }
 
                                     Label {
                                         text: {
                                             if (!card.runCtrl) return "就绪"
+                                            if (card.runCtrl.isQueued) return "排队中"
                                             if (card.runCtrl.isStarting) return "启动中"
                                             if (card.runCtrl.isStopping) return "停止中"
                                             if (card.runCtrl.running) return "运行中"

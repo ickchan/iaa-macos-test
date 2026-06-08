@@ -14,9 +14,10 @@ PageContainer {
     readonly property bool ctrl_running:    runCtrl ? runCtrl.running    : false
     readonly property bool ctrl_isStarting: runCtrl ? runCtrl.isStarting : false
     readonly property bool ctrl_isStopping: runCtrl ? runCtrl.isStopping : false
+    readonly property bool ctrl_isQueued:   runCtrl ? runCtrl.isQueued   : false
     readonly property bool ctrl_exportBusy: runCtrl ? runCtrl.exportBusy : false
     readonly property string ctrl_taskName: runCtrl ? runCtrl.currentTaskName : ""
-    readonly property bool ctrl_busy: ctrl_isStarting || ctrl_isStopping
+    readonly property bool ctrl_busy: ctrl_isStarting || ctrl_isStopping || ctrl_isQueued
 
     function reloadTasks() {
         tasks = root.runCtrl ? JSON.parse(root.runCtrl.tasksStateJson()) : []
@@ -73,7 +74,13 @@ PageContainer {
                 RowLayout {
                     Layout.fillWidth: true
                     Button {
-                        text: root.ctrl_isStarting ? "启动中" : root.ctrl_isStopping ? "停止中" : root.ctrl_running ? "停止" : "启动"
+                        text: {
+                            if (root.ctrl_isQueued)   return "排队中"
+                            if (root.ctrl_isStarting) return "启动中"
+                            if (root.ctrl_isStopping) return "停止中"
+                            if (root.ctrl_running)    return "停止"
+                            return "启动"
+                        }
                         enabled: !root.ctrl_busy
                         highlighted: !root.ctrl_running
                         onClicked: {

@@ -31,6 +31,7 @@ class RunController(QObject):
         self._progress = progress_bridge
         self._scrcpy = scrcpy_controller
         self._export_busy = False
+        self._queued = False
         self._timer = QTimer(self)
         self._timer.setInterval(300)
         self._timer.timeout.connect(self._refresh_state)
@@ -57,12 +58,20 @@ class RunController(QObject):
     def _get_current_task_name(self) -> str:
         return self._iaa.scheduler.current_task_name or ''
 
+    def _get_is_queued(self) -> bool:
+        return self._queued
+
+    def _set_queued(self, v: bool) -> None:
+        self._queued = v
+        self.stateChanged.emit()
+
     def _get_export_busy(self) -> bool:
         return self._export_busy
 
     running = Property(bool, _get_running, notify=stateChanged)
     isStarting = Property(bool, _get_is_starting, notify=stateChanged)
     isStopping = Property(bool, _get_is_stopping, notify=stateChanged)
+    isQueued = Property(bool, _get_is_queued, notify=stateChanged)
     currentTaskId = Property(str, _get_current_task_id, notify=stateChanged)
     currentTaskName = Property(str, _get_current_task_name, notify=stateChanged)
     exportBusy = Property(bool, _get_export_busy, notify=stateChanged)
