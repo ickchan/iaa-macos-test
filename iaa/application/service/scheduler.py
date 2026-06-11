@@ -548,7 +548,7 @@ class SchedulerService:
             if _maybe_start(custom_instance):
                 self._stop_lifecycle = custom_instance.stop
             if impl == 'nemu_ipc':
-                raise ValueError("'nemu_ipc' 仅支持 MuMu，不支持自定义设备。")
+                raise UserFriendlyError("'nemu_ipc' 控制方式仅支持 MuMu 模拟器，不支持自定义设备。请在设备设置中更换控制方式。")
             return _apply_impl(custom_instance)
 
         elif isinstance(lifecycle, NoDevice):
@@ -559,22 +559,22 @@ class SchedulerService:
                 if not adb_serial:
                     devices = PhysicalAndroidHost.list()
                     if not devices:
-                        raise ValueError('未找到任何 USB 设备，请连接设备后重试。')
+                        raise UserFriendlyError('未找到任何 USB 设备，请连接设备后重试。')
                     host = devices[0]
                     logger.info('自动选择 USB 设备: %s', host.id)
                 else:
                     host = PhysicalAndroidHost.query(id=adb_serial)
                     if host is None:
-                        raise ValueError(f'找不到 ADB USB 设备: {adb_serial}')
+                        raise UserFriendlyError(f'找不到 ADB USB 设备：{adb_serial}。请确认设备已连接并授权 ADB 调试。')
                 if not host.running():
-                    raise ValueError(f'ADB USB 设备不可用: {host.id}')
+                    raise UserFriendlyError(f'ADB USB 设备不可用: {host.id}')
                 if impl == 'nemu_ipc':
-                    raise ValueError("'nemu_ipc' 仅支持 MuMu，不支持物理设备。")
+                    raise UserFriendlyError("'nemu_ipc' 控制方式仅支持 MuMu 模拟器，不支持物理设备。请在设备设置中更换控制方式。")
                 return _apply_impl(host)
 
             elif isinstance(connection, TcpConnection):
                 if connection.port is None:
-                    raise ValueError('TCP 连接需要填写端口。')
+                    raise UserFriendlyError('TCP 连接需要填写端口。')
                 tcp_instance = CustomEmulatorInstance(
                     adb_ip=connection.ip,
                     adb_port=connection.port,
@@ -586,11 +586,11 @@ class SchedulerService:
                     running_command='',
                 )
                 if impl == 'nemu_ipc':
-                    raise ValueError("'nemu_ipc' 仅支持 MuMu，不支持物理设备。")
+                    raise UserFriendlyError("'nemu_ipc' 控制方式仅支持 MuMu 模拟器，不支持物理设备。请在设备设置中更换控制方式。")
                 return _apply_impl(tcp_instance)
 
             else:
-                raise ValueError('设备类型为"无"时，连接方式不能为自动，请选择 USB 或 TCP。')
+                raise UserFriendlyError('设备类型为"无"时，连接方式不能为自动，请选择 USB 或 TCP。')
 
         elif isinstance(lifecycle, AvdDevice):
             from iaa.application.service.avd import AvdHost
@@ -609,7 +609,7 @@ class SchedulerService:
 
             # qemu_grpc 直接读取硬件帧缓冲，wm size 无法改变实际分辨率。
             if impl == 'qemu_grpc' and device_conf.resolution_method != 'keep':
-                raise ValueError(
+                raise UserFriendlyError(
                     'QEMU gRPC 模式不支持自动修改分辨率，请在「分辨率设置」中选择「保持原始分辨率」，'
                     '并在 AVD Manager 中预先将 LCD 分辨率配置为 1280x720。'
                 )
@@ -621,7 +621,7 @@ class SchedulerService:
             if _maybe_start(avd_instance):
                 self._stop_lifecycle = avd_instance.stop
             if impl == 'nemu_ipc':
-                raise ValueError("'nemu_ipc' 仅支持 MuMu，不支持 AVD。")
+                raise UserFriendlyError("'nemu_ipc' 控制方式仅支持 MuMu 模拟器，不支持 AVD。请在设备设置中更换控制方式。")
             if impl == 'qemu_grpc':
                 from iaa.application.service.qemu_grpc import create_qemu_grpc_device
                 return create_qemu_grpc_device(avd_instance)
