@@ -22,11 +22,6 @@ Item {
     /** 同时可见的 Toast 上限，超出时移除最旧的一条 */
     readonly property int _maxCount: 5
 
-    SystemPalette {
-        id: sysPalette
-        colorGroup: SystemPalette.Active
-    }
-
     /**
      * 追加一条 Toast 通知。由 Notice 单例调用，不应直接使用。
      * 超出 _maxCount 时移除队列头部最旧的一条。
@@ -79,21 +74,23 @@ Item {
             height: toastCard.implicitHeight
 
             readonly property color accentColor: {
-                switch (toastItem.kind) {
-                    case "success": return "#107c10"
-                    case "warning": return "#c05a00"
-                    case "error":   return "#c42b1c"
-                    default:        return "#0067c0"
+                if (App.IaaTheme.isDark) {
+                    switch (toastItem.kind) {
+                        case "success": return "#6ccb5f"
+                        case "warning": return "#fce100"
+                        case "error":   return "#ff99a4"
+                        default:        return "#60cdff"
+                    }
+                } else {
+                    switch (toastItem.kind) {
+                        case "success": return "#107c10"
+                        case "warning": return "#c05a00"
+                        case "error":   return "#c42b1c"
+                        default:        return "#0067c0"
+                    }
                 }
             }
-            readonly property color iconColor: {
-                switch (toastItem.kind) {
-                    case "success": return "#0e7a0d"
-                    case "warning": return "#c05a00"
-                    case "error":   return "#c42b1c"
-                    default:        return "#0067c0"
-                }
-            }
+            readonly property color iconColor: accentColor
             readonly property string icon: {
                 switch (toastItem.kind) {
                     case "success": return "✓"
@@ -114,10 +111,8 @@ Item {
                 width: parent.width
                 implicitHeight: contentRow.implicitHeight + 20
                 radius: 6
-                color: sysPalette.base
-                border.color: Qt.rgba(sysPalette.windowText.r,
-                                      sysPalette.windowText.g,
-                                      sysPalette.windowText.b, 0.12)
+                color: App.IaaTheme.isDark ? "#2d2d2d" : "#ffffff"
+                border.color: App.IaaTheme.isDark ? Qt.rgba(1,1,1,0.12) : Qt.rgba(0,0,0,0.12)
                 border.width: 1
 
                 // Accent bar — inset 1px to stay inside the border
@@ -151,7 +146,7 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         text: toastItem.text
-                        color: sysPalette.windowText
+                        color: App.IaaTheme.fg
                         wrapMode: Text.Wrap
                         font.pixelSize: 13
                         lineHeightMode: Text.ProportionalHeight
@@ -166,11 +161,7 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             radius: 4
-                            color: closeMouse.containsMouse
-                                ? Qt.rgba(sysPalette.windowText.r,
-                                          sysPalette.windowText.g,
-                                          sysPalette.windowText.b, 0.08)
-                                : "transparent"
+                            color: closeMouse.containsMouse ? App.IaaTheme.hover : "transparent"
                         }
 
                         Label {
@@ -178,10 +169,8 @@ Item {
                             text: "✕"
                             font.pixelSize: 10
                             color: closeMouse.containsMouse
-                                ? sysPalette.windowText
-                                : Qt.rgba(sysPalette.windowText.r,
-                                          sysPalette.windowText.g,
-                                          sysPalette.windowText.b, 0.45)
+                                ? App.IaaTheme.fg
+                                : (App.IaaTheme.isDark ? Qt.rgba(1,1,1,0.45) : Qt.rgba(0,0,0,0.45))
                         }
 
                         MouseArea {
