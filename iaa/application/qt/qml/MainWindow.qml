@@ -54,12 +54,14 @@ ApplicationWindow {
         tabList = JSON.parse(TabManager.tabsJson())
         activeTabIndex = TabManager.activeTabIndex
         activeSettingsCtrl = TabManager.activeSettingsController
+        if (activeTabIndex >= 0) titleBar.setCurrentIndex(1)
     }
 
     // 切换 tab 时只更新 activeIndex，不碰 tabList（Repeater 模型保持不变）
     function _onActiveTabChanged() {
         activeTabIndex = TabManager.activeTabIndex
         activeSettingsCtrl = TabManager.activeSettingsController
+        if (activeTabIndex < 0) titleBar.setCurrentIndex(0)
     }
 
     function navigateTo(pageKey, tabIndex) {

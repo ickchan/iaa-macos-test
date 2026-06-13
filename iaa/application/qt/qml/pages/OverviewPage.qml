@@ -13,7 +13,6 @@ PageContainer {
     required property var configManagerDialog
 
     property var _allConfigs: []
-    property bool _pendingNavigate: false
 
     function _reload() {
         _allConfigs = JSON.parse(TabManager.allConfigsJson())
@@ -23,13 +22,7 @@ PageContainer {
 
     Connections {
         target: TabManager
-        function onTabsChanged() {
-            root._reload()
-            if (root._pendingNavigate) {
-                root._pendingNavigate = false
-                window.navigateTo("tab", TabManager.activeTabIndex)
-            }
-        }
+        function onTabsChanged() { root._reload() }
         function onActiveTabChanged() { root._reload() }
     }
 
@@ -225,7 +218,6 @@ PageContainer {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     if (card._tabIdx < 0) {
-                                        root._pendingNavigate = true
                                         TabManager.openTab(modelData.configName)
                                     } else {
                                         TabManager.setActiveTab(card._tabIdx)
