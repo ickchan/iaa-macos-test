@@ -54,6 +54,15 @@ def _create_macos_dmg(source_dir: Path, dest_file: Path, app_name: str) -> Path:
 
         shutil.copytree(source_dir, macos_dir, dirs_exist_ok=True, symlinks=True)
 
+        # PyInstaller's macOS bootloader hard-codes the search path for libpython as
+        # Contents/Frameworks/, regardless of where COLLECT placed the file.
+        frameworks_dir = contents / 'Frameworks'
+        frameworks_dir.mkdir()
+        internal_dir = macos_dir / '_internal'
+        if internal_dir.exists():
+            for dylib in internal_dir.glob('libpython*.dylib'):
+                shutil.copy2(dylib, frameworks_dir / dylib.name)
+
         icon_src = Path.cwd() / 'assets' / f'{app_name}.icns'
         icon_plist = ''
         if icon_src.exists():
