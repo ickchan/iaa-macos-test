@@ -1,4 +1,5 @@
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -44,7 +45,11 @@ def make_build_command(config: BuildConfig) -> click.Command:
 
         click.echo('Copying to distribution directory...')
         dist_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(bundle_dir, dist_dir, dirs_exist_ok=True)
+        if sys.platform == 'darwin':
+            # bundle_dir is an .app; preserve it as a named subdirectory
+            shutil.copytree(bundle_dir, dist_dir / bundle_dir.name, symlinks=True)
+        else:
+            shutil.copytree(bundle_dir, dist_dir, dirs_exist_ok=True)
 
         click.echo('Creating package...')
         archive_path = create_archive(dist_dir, package_output_path, sevenzip_level=2, app_name=config.name)

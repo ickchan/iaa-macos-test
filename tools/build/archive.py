@@ -1,4 +1,3 @@
-import re
 import shutil
 import subprocess
 import sys
@@ -6,79 +5,13 @@ import tempfile
 from pathlib import Path
 
 
-_INFO_PLIST = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleExecutable</key>
-    <string>{executable}</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.xcantloadx.{name}</string>
-    <key>CFBundleName</key>
-    <string>{name}</string>
-    <key>CFBundleDisplayName</key>
-    <string>{display_name}</string>
-    <key>CFBundleShortVersionString</key>
-    <string>{version}</string>
-    <key>CFBundleVersion</key>
-    <string>{version}</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-</dict>
-</plist>
-"""
-
-
 def _create_macos_dmg(source_dir: Path, dest_file: Path, app_name: str) -> Path:
-    """Create a macOS drag-to-Applications DMG installer from a PyInstaller COLLECT output."""
+    """Create a macOS drag-to-Applications DMG from a directory containing a .app bundle."""
     archive_path = dest_file.with_suffix('.dmg')
-
-    m = re.search(r'_v([^_]+)_', dest_file.stem)
-    version = m.group(1) if m else '0.0.0'
+    app_bundle = source_dir / f'{app_name}.app'
 
     with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-
-        # Wrap PyInstaller COLLECT output in a .app bundle
-        app_bundle = tmp_path / f'{app_name}.app'
-        contents = app_bundle / 'Contents'
-        macos_dir = contents / 'MacOS'
-        resources_dir = contents / 'Resources'
-        macos_dir.mkdir(parents=True)
-        resources_dir.mkdir()
-
-        shutil.copytree(source_dir, macos_dir, dirs_exist_ok=True, symlinks=True)
-
-        # PyInstaller's macOS bootloader hard-codes the search path for libpython as
-        # Contents/Frameworks/, regardless of where COLLECT placed the file.
-        frameworks_dir = contents / 'Frameworks'
-        frameworks_dir.mkdir()
-        internal_dir = macos_dir / '_internal'
-        if internal_dir.exists():
-            for dylib in internal_dir.glob('libpython*.dylib'):
-                shutil.copy2(dylib, frameworks_dir / dylib.name)
-
-        icon_src = Path.cwd() / 'assets' / f'{app_name}.icns'
-        icon_plist = ''
-        if icon_src.exists():
-            shutil.copy2(icon_src, resources_dir / f'{app_name}.icns')
-            icon_plist = f'\n    <key>CFBundleIconFile</key>\n    <string>{app_name}</string>'
-
-        plist = _INFO_PLIST.format(
-            executable=app_name,
-            name=app_name,
-            display_name=app_name,
-            version=version,
-        ).replace('</dict>', f'{icon_plist}\n</dict>')
-        (contents / 'Info.plist').write_text(plist, encoding='utf-8')
-
-        # Build DMG staging area: .app + symlink to /Applications
-        staging = tmp_path / 'staging'
+        staging = Path(tmp) / 'staging'
         staging.mkdir()
         shutil.copytree(app_bundle, staging / app_bundle.name, symlinks=True)
         (staging / 'Applications').symlink_to('/Applications')

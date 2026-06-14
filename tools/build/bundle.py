@@ -183,13 +183,32 @@ def apply_spec(config: BuildConfig) -> None:
         )
         collect_args += [cli_exe, cli_analysis.binaries, cli_analysis.datas]
 
-    COLLECT(
-        *collect_args,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        name=config.name,
-    )
+    if sys.platform == 'darwin':
+        from PyInstaller.building.build_main import BUNDLE
+        coll = COLLECT(
+            *collect_args,
+            strip=False,
+            upx=False,
+            name=config.name,
+        )
+        BUNDLE(
+            coll,
+            name=f'{config.name}.app',
+            icon=icon[0] if icon else None,
+            bundle_identifier=f'com.xcantloadx.{config.name}',
+            info_plist={
+                'NSHighResolutionCapable': True,
+                'CFBundleShortVersionString': config.version,
+            },
+        )
+    else:
+        COLLECT(
+            *collect_args,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            name=config.name,
+        )
 
 
 def _expected_executables(config: BuildConfig) -> list[str]:
@@ -242,13 +261,21 @@ def build_app(config: BuildConfig) -> Path:
         check=True,
     )
 
-    bundle_dir = build_root / config.name
+    if sys.platform == 'darwin':
+        bundle_dir = build_root / f'{config.name}.app'
+        if not bundle_dir.exists():
+            raise RuntimeError(f'构建失败：找不到 .app bundle {bundle_dir}')
+        exe_base = bundle_dir / 'Contents' / 'MacOS'
+    else:
+        bundle_dir = build_root / config.name
+        exe_base = bundle_dir
+
     for exe_name in _expected_executables(config):
-        if not (bundle_dir / exe_name).exists():
-            raise RuntimeError(f'构建失败：找不到预期的可执行文件 {bundle_dir / exe_name}')
+        if not (exe_base / exe_name).exists():
+            raise RuntimeError(f'构建失败：找不到预期的可执行文件 {exe_base / exe_name}')
 
     if config.runtime_copy:
-        _apply_runtime_copy(config, root, bundle_dir)
+        _apply_runtime_copy(config, root, exe_base)
 
     removed = prune_dist_directory(bundle_dir)
     if removed:
