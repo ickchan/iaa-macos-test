@@ -9,12 +9,9 @@ permissions:
 jobs:
   build-macos:
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - arch: arm64
-            python_arch: arm64
-          - arch: x86_64
-            python_arch: x64
+        arch: [arm64, x86_64]
 
     runs-on: macos-14
 
@@ -24,14 +21,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.10 (arm64, native)
+        if: matrix.arch == 'arm64'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          architecture: ${{ matrix.python_arch }}
+
+      - name: Set up Python 3.10 (x86_64 via python-build-standalone)
+        if: matrix.arch == 'x86_64'
+        run: |
+          curl -fsSL \
+            "https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.10.15+20241016-x86_64-apple-darwin-install_only_stripped.tar.gz" \
+            | tar xz -C "$HOME"
+          echo "$HOME/python/bin" >> "$GITHUB_PATH"
 
       - name: Install uv
-        run: python -m pip install uv
+        run: python3 -m pip install uv
 
       - name: Install dependencies
         run: uv sync --group dev
@@ -39,11 +44,11 @@ jobs:
       - name: Print environment info
         run: |
           echo "=== Python arch ==="
-          python -c "import platform; print(platform.machine())"
+          python3 -c "import platform; print(platform.machine())"
           echo "=== Python deployment target ==="
-          python -c "import sysconfig; print(sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET'))"
+          python3 -c "import sysconfig; print(sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET'))"
           echo "=== PySide6 version ==="
-          uv run python -c "import PySide6; print(PySide6.__version__)"
+          uv run python3 -c "import PySide6; print(PySide6.__version__)"
 
       - name: Build release bundle
         run: uv run build.py build
