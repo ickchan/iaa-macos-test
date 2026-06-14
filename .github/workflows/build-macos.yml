@@ -1,0 +1,44 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Build release bundle
+        run: uv run build.py build
+
+      - name: Locate build artifact
+        id: asset
+        run: |
+          ASSET=$(ls dist_app/iaa_v*.7z dist_app/iaa_v*.zip 2>/dev/null | head -1)
+          echo "asset_path=${ASSET}" >> $GITHUB_OUTPUT
+          echo "asset_name=$(basename ${ASSET})" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.asset.outputs.asset_name }}
+          path: ${{ steps.asset.outputs.asset_path }}

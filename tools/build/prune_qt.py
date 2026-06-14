@@ -10,6 +10,7 @@ Standalone usage:
 
 import re
 import shutil
+import sys
 from pathlib import Path
 
 # .pyd modules to KEEP (base name without .pyd)
@@ -164,6 +165,8 @@ def prune_pyside6_dir(pyside6_dir: Path) -> int:
 
 def prune_dist_directory(dist_dir: Path) -> int:
     """Remove unused PySide6/Qt files from a PyInstaller dist directory. Returns bytes removed."""
+    if sys.platform != 'win32':
+        return 0
     internal_dir = dist_dir / '_internal'
     if not internal_dir.is_dir():
         return 0

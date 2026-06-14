@@ -101,7 +101,12 @@ def apply_spec(config: BuildConfig) -> None:
     from PyInstaller.building.build_main import Analysis, COLLECT, EXE, PYZ
 
     root = Path.cwd()
-    icon = [str(root / config.icon)]
+    ico_path = root / config.icon
+    if sys.platform == 'darwin':
+        icns_path = ico_path.with_suffix('.icns')
+        icon = [str(icns_path)] if icns_path.exists() else []
+    else:
+        icon = [str(ico_path)]
 
     datas, binaries, hiddenimports = collect_packages_for_spec(config, root)
 
