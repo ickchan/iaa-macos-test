@@ -47,7 +47,7 @@ def make_build_command(config: BuildConfig) -> click.Command:
         shutil.copytree(bundle_dir, dist_dir, dirs_exist_ok=True)
 
         click.echo('Creating package...')
-        archive_path = create_archive(dist_dir, package_output_path, sevenzip_level=2)
+        archive_path = create_archive(dist_dir, package_output_path, sevenzip_level=2, app_name=config.name)
         click.echo(f'Packaged: {archive_path}')
         click.echo(click.style('Build completed!', fg='green'))
 
