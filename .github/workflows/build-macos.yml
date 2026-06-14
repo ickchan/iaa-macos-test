@@ -8,7 +8,15 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-13
+            arch: x86_64
+          - runner: macos-14
+            arch: arm64
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Check out repository
@@ -27,15 +35,32 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Print environment info
+        run: |
+          echo "=== Python deployment target ==="
+          python -c "import sysconfig; print(sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET'))"
+          echo "=== PySide6 version ==="
+          uv run python -c "import PySide6; print(PySide6.__version__)"
+
       - name: Build release bundle
         run: uv run build.py build
 
-      - name: Locate build artifact
+      - name: Print binary minimum macOS version
+        run: |
+          EXE="build/iaa/iaa"
+          echo "=== LC_BUILD_VERSION (minimum macOS) for ${EXE} ==="
+          otool -l "${EXE}" | grep -A4 'LC_BUILD_VERSION' || true
+          otool -l "${EXE}" | grep -A3 'LC_VERSION_MIN_MACOSX' || true
+
+      - name: Locate and rename artifact
         id: asset
         run: |
-          ASSET=$(ls dist_app/iaa_v*.7z dist_app/iaa_v*.zip 2>/dev/null | head -1)
-          echo "asset_path=${ASSET}" >> $GITHUB_OUTPUT
-          echo "asset_name=$(basename ${ASSET})" >> $GITHUB_OUTPUT
+          ASSET=$(ls dist_app/iaa_v*.dmg | head -1)
+          BASE=$(basename "${ASSET}" .dmg)
+          RENAMED="dist_app/${BASE}_${{ matrix.arch }}.dmg"
+          mv "${ASSET}" "${RENAMED}"
+          echo "asset_path=${RENAMED}" >> $GITHUB_OUTPUT
+          echo "asset_name=$(basename ${RENAMED})" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
