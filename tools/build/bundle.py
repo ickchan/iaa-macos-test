@@ -246,6 +246,11 @@ def build_app(config: BuildConfig) -> Path:
     root = Path.cwd()
     build_root = root / 'build'
 
+    make_resources = root / 'tools' / 'make_resources.py'
+    if make_resources.exists():
+        print('Generating template resources (R.py)...')
+        subprocess.run([sys.executable, str(make_resources), '-p'], check=True)
+
     spec_file = build_root / f'{config.name}.spec'
     spec_file.parent.mkdir(parents=True, exist_ok=True)
     spec_file.write_text(_SPEC_TEMPLATE, encoding='utf-8')

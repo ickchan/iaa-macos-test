@@ -50,9 +50,6 @@ jobs:
           echo "=== PySide6 version ==="
           uv run python3 -c "import PySide6; print(PySide6.__version__)"
 
-      - name: Generate template resources (R.py)
-        run: uv run ./tools/make_resources.py
-
       - name: Build release bundle
         run: uv run build.py build
 
