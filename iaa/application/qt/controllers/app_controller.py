@@ -63,7 +63,10 @@ class AppController(QObject):
             return '一歌小助手'
 
     def _get_assets_root_path(self) -> str:
-        return os.path.join(IaaService.app_root(), 'assets').replace('\\', '/')
+        # Strip leading '/' so that QML's "file:///" + assetsRootPath is valid on all platforms.
+        # On Windows: "C:/path/assets" → "file:///C:/path/assets" ✓
+        # On macOS:  "/Applications/iaa.app/.../assets" → "file:///Applications/iaa.app/.../assets" ✓
+        return os.path.join(IaaService.app_root(), 'assets').replace('\\', '/').lstrip('/')
 
     def _get_global_error(self) -> str:
         return self._global_error
