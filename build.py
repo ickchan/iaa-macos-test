@@ -3,7 +3,9 @@ import sys
 from tools.build import BuildConfig
 from tools.build.cli import main
 
-_extra_hidden_imports: list[str] = []
+# iaa.tasks.R is generated before build; declare as hidden import so PyInstaller
+# bundles it even if static analysis of its wildcard import fails on macOS.
+_extra_hidden_imports: list[str] = ['iaa.tasks.R']
 if sys.platform == 'win32':
     _extra_hidden_imports.append('plyer.platforms.win.notification')
 elif sys.platform == 'darwin':
